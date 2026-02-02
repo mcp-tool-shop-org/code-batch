@@ -9,6 +9,11 @@ CodeBatch provides a filesystem-based execution substrate for running determinis
 ## Documentation
 
 - **[SPEC.md](./SPEC.md)** — Full storage and execution specification
+- **[CHANGELOG.md](./CHANGELOG.md)** — Version history
+
+## Spec Versioning
+
+The specification uses semantic versioning with draft/stable markers. Each version is tagged in git (e.g., `spec-v1.0-draft`). Breaking changes increment the major version. Implementations should declare which spec version they target and tolerate unknown fields for forward compatibility.
 
 ## Project Structure
 
