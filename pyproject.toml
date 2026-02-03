@@ -38,5 +38,5 @@ packages = ["src/codebatch"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
 addopts = "-v"
+# Note: pythonpath injection handled by tests/conftest.py for broader compatibility
