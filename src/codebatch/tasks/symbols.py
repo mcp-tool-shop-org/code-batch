@@ -270,10 +270,236 @@ def extract_python_symbols(ast_data: dict, path: str) -> tuple[list[dict], list[
     return symbols, edges
 
 
-def extract_js_symbols(ast_data: dict, path: str) -> tuple[list[dict], list[dict]]:
-    """Extract symbols from JavaScript/TypeScript token data.
+def _extract_js_symbols_from_node(
+    node: dict,
+    path: str,
+    scope: str,
+    symbols: list[dict],
+    edges: list[dict],
+) -> None:
+    """Recursively extract symbols from a tree-sitter JS/TS AST node.
 
-    Since we only have token counts (not full AST), we provide basic counts.
+    Args:
+        node: Tree-sitter AST node dict.
+        path: Source file path.
+        scope: Current scope name.
+        symbols: List to append symbol records to.
+        edges: List to append edge records to.
+    """
+    node_type = node.get("type", "")
+    start_point = node.get("start_point", {})
+    lineno = start_point.get("row", 0) + 1  # tree-sitter is 0-indexed
+    col = start_point.get("column", 0)
+
+    # Function declarations
+    if node_type == "function_declaration":
+        name = node.get("name")
+        if name:
+            symbols.append({
+                "kind": "symbol",
+                "path": path,
+                "name": name,
+                "symbol_type": "function",
+                "line": lineno,
+                "col": col,
+                "scope": scope,
+            })
+            # Recurse into function body with new scope
+            for child in node.get("children", []):
+                _extract_js_symbols_from_node(child, path, name, symbols, edges)
+            return  # Don't recurse again
+
+    # Arrow functions (when assigned to const/let/var)
+    # These are handled via variable_declarator
+
+    # Method definitions (inside classes)
+    if node_type == "method_definition":
+        name = node.get("name")
+        if name:
+            symbols.append({
+                "kind": "symbol",
+                "path": path,
+                "name": name,
+                "symbol_type": "function",
+                "line": lineno,
+                "col": col,
+                "scope": scope,
+            })
+            for child in node.get("children", []):
+                _extract_js_symbols_from_node(child, path, name, symbols, edges)
+            return
+
+    # Class declarations
+    if node_type == "class_declaration":
+        name = node.get("name")
+        # For TypeScript, class name may be in type_identifier child
+        if not name:
+            for child in node.get("children", []):
+                if child.get("type") in ("identifier", "type_identifier"):
+                    name = child.get("name")
+                    break
+        if name:
+            symbols.append({
+                "kind": "symbol",
+                "path": path,
+                "name": name,
+                "symbol_type": "class",
+                "line": lineno,
+                "col": col,
+                "scope": scope,
+            })
+            # Look for extends clause
+            for child in node.get("children", []):
+                if child.get("type") == "class_heritage":
+                    # Find the extended class name
+                    for heritage_child in child.get("children", []):
+                        if heritage_child.get("type") in ("identifier", "type_identifier"):
+                            base_name = heritage_child.get("name")
+                            if base_name:
+                                edges.append({
+                                    "kind": "edge",
+                                    "path": path,
+                                    "edge_type": "inherits",
+                                    "target": base_name,
+                                    "line": lineno,
+                                })
+            # Recurse with class as scope
+            for child in node.get("children", []):
+                _extract_js_symbols_from_node(child, path, name, symbols, edges)
+            return
+
+    # Variable declarations (const, let, var)
+    if node_type == "variable_declarator":
+        name = node.get("name")
+        if name:
+            symbols.append({
+                "kind": "symbol",
+                "path": path,
+                "name": name,
+                "symbol_type": "variable",
+                "line": lineno,
+                "col": col,
+                "scope": scope,
+            })
+
+    # Import statements
+    if node_type == "import_statement":
+        source = node.get("source")
+        if source:
+            edges.append({
+                "kind": "edge",
+                "path": path,
+                "edge_type": "imports",
+                "target": source,
+                "line": lineno,
+            })
+        # Extract imported identifiers
+        for child in node.get("children", []):
+            if child.get("type") == "import_clause":
+                _extract_import_identifiers(child, path, scope, symbols, lineno, col)
+            elif child.get("type") == "named_imports":
+                _extract_import_identifiers(child, path, scope, symbols, lineno, col)
+
+    # Export statements
+    if node_type == "export_statement":
+        # Look for default export or named exports
+        for child in node.get("children", []):
+            child_type = child.get("type")
+            if child_type in ("function_declaration", "class_declaration"):
+                _extract_js_symbols_from_node(child, path, scope, symbols, edges)
+            elif child_type == "export_clause":
+                # Named exports
+                for export_child in child.get("children", []):
+                    if export_child.get("type") == "export_specifier":
+                        export_name = export_child.get("name")
+                        if export_name:
+                            edges.append({
+                                "kind": "edge",
+                                "path": path,
+                                "edge_type": "exports",
+                                "target": export_name,
+                                "line": lineno,
+                            })
+        return  # Handled above
+
+    # Recurse into children by default
+    for child in node.get("children", []):
+        _extract_js_symbols_from_node(child, path, scope, symbols, edges)
+
+
+def _extract_import_identifiers(
+    node: dict,
+    path: str,
+    scope: str,
+    symbols: list[dict],
+    lineno: int,
+    col: int,
+) -> None:
+    """Extract imported identifiers from import clause.
+
+    Args:
+        node: Import clause or named_imports node.
+        path: Source file path.
+        scope: Current scope.
+        symbols: List to append symbols to.
+        lineno: Line number.
+        col: Column offset.
+    """
+    for child in node.get("children", []):
+        child_type = child.get("type")
+        if child_type == "identifier":
+            name = child.get("name")
+            if name:
+                symbols.append({
+                    "kind": "symbol",
+                    "path": path,
+                    "name": name,
+                    "symbol_type": "import_alias",
+                    "line": lineno,
+                    "col": col,
+                    "scope": scope,
+                })
+        elif child_type == "import_specifier":
+            # { foo as bar }
+            name = child.get("name")
+            if name:
+                symbols.append({
+                    "kind": "symbol",
+                    "path": path,
+                    "name": name,
+                    "symbol_type": "import_alias",
+                    "line": lineno,
+                    "col": col,
+                    "scope": scope,
+                })
+        elif child_type == "named_imports":
+            _extract_import_identifiers(child, path, scope, symbols, lineno, col)
+
+
+def extract_js_symbols_treesitter(ast_data: dict, path: str) -> tuple[list[dict], list[dict]]:
+    """Extract symbols from tree-sitter JavaScript/TypeScript AST.
+
+    Args:
+        ast_data: Tree-sitter AST dict from parse task.
+        path: Source file path.
+
+    Returns:
+        Tuple of (symbols, edges).
+    """
+    symbols: list[dict] = []
+    edges: list[dict] = []
+
+    # Process top-level children
+    for child in ast_data.get("children", []):
+        _extract_js_symbols_from_node(child, path, "module", symbols, edges)
+
+    return symbols, edges
+
+
+def extract_js_symbols_fallback(ast_data: dict, path: str) -> tuple[list[dict], list[dict]]:
+    """Extract symbols from fallback JavaScript/TypeScript token data.
+
+    Since we only have token counts (not full AST), we provide basic info.
 
     Args:
         ast_data: Token info dict from parse task.
@@ -300,6 +526,27 @@ def extract_js_symbols(ast_data: dict, path: str) -> tuple[list[dict], list[dict
         })
 
     return symbols, edges
+
+
+def extract_js_symbols(ast_data: dict, path: str) -> tuple[list[dict], list[dict]]:
+    """Extract symbols from JavaScript/TypeScript AST or token data.
+
+    Handles both tree-sitter full AST and fallback token modes.
+
+    Args:
+        ast_data: AST or token info dict from parse task.
+        path: Source file path.
+
+    Returns:
+        Tuple of (symbols, edges).
+    """
+    ast_mode = ast_data.get("ast_mode", "")
+    parser = ast_data.get("parser", "")
+
+    if ast_mode == "full" and parser == "tree-sitter":
+        return extract_js_symbols_treesitter(ast_data, path)
+    else:
+        return extract_js_symbols_fallback(ast_data, path)
 
 
 def extract_text_symbols(ast_data: dict, path: str) -> tuple[list[dict], list[dict]]:
@@ -366,6 +613,7 @@ def symbols_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -
             # Extract based on AST type
             ast_type = ast_data.get("type", "")
             ast_mode = ast_data.get("ast_mode", "")
+            parser = ast_data.get("parser", "")
 
             symbols = []
             edges = []
@@ -373,8 +621,11 @@ def symbols_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -
             if ast_type == "Module" and ast_mode in ("full", "summary"):
                 # Python AST (full or legacy summary mode)
                 symbols, edges = extract_python_symbols(ast_data, path)
+            elif ast_type == "program" and parser == "tree-sitter":
+                # Tree-sitter JavaScript/TypeScript AST
+                symbols, edges = extract_js_symbols(ast_data, path)
             elif ast_type == "TokenInfo":
-                # JavaScript/TypeScript tokens
+                # JavaScript/TypeScript fallback tokens
                 symbols, edges = extract_js_symbols(ast_data, path)
             elif ast_type == "TextInfo":
                 # Text file stats

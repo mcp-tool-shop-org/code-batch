@@ -752,6 +752,195 @@ function test() {
         assert "tokens" in ast_dict
 
 
+class TestGateP8JsSymbols:
+    """P8-JS-SYMBOLS: JS/TS symbol extraction must produce real names.
+
+    Gate is optional - skipped if tree-sitter not installed.
+    """
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_js_function_symbols_extracted(self):
+        """JavaScript functions must be extracted as symbols."""
+        from codebatch.tasks.parse import parse_javascript
+        from codebatch.tasks.symbols import extract_js_symbols
+
+        js_code = '''
+function calculateTotal(items) {
+    return items.reduce((sum, item) => sum + item.price, 0);
+}
+
+function formatCurrency(amount) {
+    return "$" + amount.toFixed(2);
+}
+'''.strip()
+
+        ast_dict, _ = parse_javascript(js_code, "test.js")
+        symbols, edges = extract_js_symbols(ast_dict, "test.js")
+
+        symbol_names = [s["name"] for s in symbols if s["kind"] == "symbol"]
+        assert "calculateTotal" in symbol_names, f"Function 'calculateTotal' not found in {symbol_names}"
+        assert "formatCurrency" in symbol_names, f"Function 'formatCurrency' not found in {symbol_names}"
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_js_class_symbols_extracted(self):
+        """JavaScript classes must be extracted as symbols."""
+        from codebatch.tasks.parse import parse_javascript
+        from codebatch.tasks.symbols import extract_js_symbols
+
+        js_code = '''
+class ShoppingCart {
+    constructor() {
+        this.items = [];
+    }
+
+    addItem(item) {
+        this.items.push(item);
+    }
+
+    removeItem(index) {
+        this.items.splice(index, 1);
+    }
+}
+'''.strip()
+
+        ast_dict, _ = parse_javascript(js_code, "test.js")
+        symbols, edges = extract_js_symbols(ast_dict, "test.js")
+
+        symbol_names = [s["name"] for s in symbols if s["kind"] == "symbol"]
+        assert "ShoppingCart" in symbol_names, f"Class 'ShoppingCart' not found in {symbol_names}"
+        assert "addItem" in symbol_names, f"Method 'addItem' not found in {symbol_names}"
+        assert "removeItem" in symbol_names, f"Method 'removeItem' not found in {symbol_names}"
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_js_variable_symbols_extracted(self):
+        """JavaScript variables (const/let/var) must be extracted."""
+        from codebatch.tasks.parse import parse_javascript
+        from codebatch.tasks.symbols import extract_js_symbols
+
+        js_code = '''
+const API_KEY = "secret";
+let counter = 0;
+var legacyVar = "old";
+'''.strip()
+
+        ast_dict, _ = parse_javascript(js_code, "test.js")
+        symbols, edges = extract_js_symbols(ast_dict, "test.js")
+
+        symbol_names = [s["name"] for s in symbols if s["kind"] == "symbol"]
+        assert "API_KEY" in symbol_names, f"Const 'API_KEY' not found in {symbol_names}"
+        assert "counter" in symbol_names, f"Let 'counter' not found in {symbol_names}"
+        assert "legacyVar" in symbol_names, f"Var 'legacyVar' not found in {symbol_names}"
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_js_import_edges_extracted(self):
+        """JavaScript imports must create edge records."""
+        from codebatch.tasks.parse import parse_javascript
+        from codebatch.tasks.symbols import extract_js_symbols
+
+        js_code = '''
+import React from 'react';
+import { useState, useEffect } from 'react';
+import * as utils from './utils';
+'''.strip()
+
+        ast_dict, _ = parse_javascript(js_code, "test.js")
+        symbols, edges = extract_js_symbols(ast_dict, "test.js")
+
+        import_targets = [e["target"] for e in edges if e.get("edge_type") == "imports"]
+        assert "react" in import_targets, f"Import 'react' not found in {import_targets}"
+        assert "./utils" in import_targets, f"Import './utils' not found in {import_targets}"
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_js_class_inheritance_edge(self):
+        """JavaScript class extends must create inheritance edge."""
+        from codebatch.tasks.parse import parse_javascript
+        from codebatch.tasks.symbols import extract_js_symbols
+
+        js_code = '''
+class Animal {
+    speak() {}
+}
+
+class Dog extends Animal {
+    bark() {}
+}
+'''.strip()
+
+        ast_dict, _ = parse_javascript(js_code, "test.js")
+        symbols, edges = extract_js_symbols(ast_dict, "test.js")
+
+        inherit_targets = [e["target"] for e in edges if e.get("edge_type") == "inherits"]
+        assert "Animal" in inherit_targets, f"Inheritance 'Animal' not found in {inherit_targets}"
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_ts_symbols_extracted(self):
+        """TypeScript symbols must be extracted."""
+        from codebatch.tasks.parse import parse_javascript
+        from codebatch.tasks.symbols import extract_js_symbols
+
+        ts_code = '''
+interface User {
+    id: number;
+    name: string;
+}
+
+function greetUser(user: User): string {
+    return `Hello, ${user.name}!`;
+}
+
+class UserService {
+    private users: User[] = [];
+
+    addUser(user: User): void {
+        this.users.push(user);
+    }
+}
+'''.strip()
+
+        ast_dict, _ = parse_javascript(ts_code, "test.ts")
+        symbols, edges = extract_js_symbols(ast_dict, "test.ts")
+
+        symbol_names = [s["name"] for s in symbols if s["kind"] == "symbol"]
+        assert "greetUser" in symbol_names, f"Function 'greetUser' not found in {symbol_names}"
+        assert "UserService" in symbol_names, f"Class 'UserService' not found in {symbol_names}"
+        assert "addUser" in symbol_names, f"Method 'addUser' not found in {symbol_names}"
+
+    def test_js_symbols_fallback_mode(self):
+        """Fallback mode should produce basic symbol info."""
+        from codebatch.tasks.symbols import extract_js_symbols_fallback
+
+        token_data = {
+            "type": "TokenInfo",
+            "ast_mode": "tokens",
+            "parser": "regex-fallback",
+            "tokens": {"keyword": 5, "identifier": 10},
+        }
+
+        symbols, edges = extract_js_symbols_fallback(token_data, "test.js")
+
+        # Should have at least a module symbol
+        assert len(symbols) >= 1
+        assert symbols[0]["symbol_type"] == "module"
+
+
 class TestGateP8LintAst:
     """P8-LINT-AST: AST-aware linting must detect semantic issues.
 
