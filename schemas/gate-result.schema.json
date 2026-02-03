@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codebatch.dev/schemas/gate-result.schema.json",
+  "title": "GateResult",
+  "description": "Result of a CodeBatch gate run",
+  "type": "object",
+  "required": ["gate_id", "status", "passed", "duration_ms"],
+  "properties": {
+    "gate_id": {
+      "type": "string",
+      "description": "Canonical gate identifier (e.g., P3-A1)",
+      "pattern": "^[A-Z][A-Z0-9]+-[A-Z][A-Z0-9]*(-[a-z0-9-]+)?$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ENFORCED", "HARNESS", "PLACEHOLDER"],
+      "description": "Gate enforcement status"
+    },
+    "passed": {
+      "type": "boolean",
+      "description": "Whether the gate passed"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Execution time in milliseconds"
+    },
+    "details": {
+      "type": "object",
+      "description": "Gate-specific structured data",
+      "additionalProperties": true
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Paths to generated artifacts"
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/GateFailure"
+      },
+      "description": "List of actionable failure details"
+    },
+    "environment": {
+      "$ref": "#/$defs/GateEnvironment"
+    },
+    "context": {
+      "$ref": "#/$defs/GateContext"
+    }
+  },
+  "$defs": {
+    "GateFailure": {
+      "type": "object",
+      "required": ["message"],
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "Human-readable failure message"
+        },
+        "location": {
+          "type": "string",
+          "description": "File:line or identifier where failure occurred"
+        },
+        "expected": {
+          "type": "string",
+          "description": "Expected value or state"
+        },
+        "actual": {
+          "type": "string",
+          "description": "Actual value or state"
+        },
+        "suggestion": {
+          "type": "string",
+          "description": "Actionable fix suggestion"
+        }
+      }
+    },
+    "GateEnvironment": {
+      "type": "object",
+      "properties": {
+        "os": {
+          "type": "string",
+          "description": "Operating system (e.g., win32, linux)"
+        },
+        "python": {
+          "type": "string",
+          "description": "Python version"
+        },
+        "codebatch_version": {
+          "type": "string",
+          "description": "CodeBatch version"
+        }
+      }
+    },
+    "GateContext": {
+      "type": "object",
+      "required": ["store"],
+      "properties": {
+        "store": {
+          "type": "string",
+          "description": "Path to CodeBatch store"
+        },
+        "batch_id": {
+          "type": "string",
+          "description": "Batch identifier"
+        },
+        "snapshot_id": {
+          "type": "string",
+          "description": "Snapshot identifier"
+        },
+        "task_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of task IDs"
+        }
+      }
+    }
+  }
+}

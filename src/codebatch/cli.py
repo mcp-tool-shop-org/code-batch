@@ -221,6 +221,35 @@ def main(argv: list[str] = None) -> int:
     index_build_parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     index_build_parser.set_defaults(func=cmd_index_build)
 
+    # gate list command
+    gate_list_parser = subparsers.add_parser("gate-list", help="List all gates")
+    gate_list_parser.add_argument("--status", choices=["ENFORCED", "HARNESS", "PLACEHOLDER"], help="Filter by status")
+    gate_list_parser.add_argument("--tag", help="Filter by tag")
+    gate_list_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    gate_list_parser.set_defaults(func=cmd_gate_list)
+
+    # gate run command
+    gate_run_parser = subparsers.add_parser("gate-run", help="Run a gate")
+    gate_run_parser.add_argument("gate_id", help="Gate ID or alias")
+    gate_run_parser.add_argument("--store", required=True, help="Store root directory")
+    gate_run_parser.add_argument("--batch", help="Batch ID")
+    gate_run_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    gate_run_parser.set_defaults(func=cmd_gate_run)
+
+    # gate run-bundle command
+    gate_bundle_parser = subparsers.add_parser("gate-bundle", help="Run a gate bundle")
+    gate_bundle_parser.add_argument("bundle", help="Bundle name (phase1, phase2, phase3, release)")
+    gate_bundle_parser.add_argument("--store", required=True, help="Store root directory")
+    gate_bundle_parser.add_argument("--batch", help="Batch ID")
+    gate_bundle_parser.add_argument("--fail-fast", action="store_true", help="Stop on first failure")
+    gate_bundle_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    gate_bundle_parser.set_defaults(func=cmd_gate_bundle)
+
+    # gate explain command
+    gate_explain_parser = subparsers.add_parser("gate-explain", help="Explain a gate")
+    gate_explain_parser.add_argument("gate_id", help="Gate ID or alias")
+    gate_explain_parser.set_defaults(func=cmd_gate_explain)
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -476,6 +505,177 @@ def cmd_index_build(args: argparse.Namespace) -> int:
     except Exception as e:
         print(f"Error building index: {e}", file=sys.stderr)
         return 1
+
+
+def cmd_gate_list(args: argparse.Namespace) -> int:
+    """Handle the gate list command."""
+    from .gates.registry import get_registry
+    from .gates.result import GateStatus
+    from .gates import definitions  # Ensure gates are registered
+
+    registry = get_registry()
+    gates = registry.list_all()
+
+    # Apply filters
+    if args.status:
+        status = GateStatus(args.status)
+        gates = [g for g in gates if g.status == status]
+
+    if args.tag:
+        gates = [g for g in gates if args.tag in g.tags]
+
+    if not gates:
+        print("No gates found.")
+        return 0
+
+    if args.json:
+        import json
+        print(json.dumps([g.to_dict() for g in gates], indent=2))
+    else:
+        # Print table header
+        print(f"{'ID':<15} {'STATUS':<12} {'TITLE':<40}")
+        print("-" * 70)
+        for gate in sorted(gates, key=lambda g: g.gate_id):
+            status_mark = {
+                GateStatus.ENFORCED: "\u2705",  # checkmark
+                GateStatus.HARNESS: "\u2699\ufe0f",  # gear
+                GateStatus.PLACEHOLDER: "\u23f3",  # hourglass
+            }.get(gate.status, "")
+            print(f"{gate.gate_id:<15} {gate.status.value:<12} {gate.title:<40}")
+
+        print(f"\nTotal: {len(gates)} gates")
+
+    return 0
+
+
+def cmd_gate_run(args: argparse.Namespace) -> int:
+    """Handle the gate run command."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    from .gates.runner import run_gate
+
+    try:
+        result = run_gate(
+            store_root=store_root,
+            gate_id=args.gate_id,
+            batch_id=args.batch,
+        )
+
+        if args.json:
+            print(result.to_json())
+        else:
+            status_icon = "\u2705" if result.passed else "\u274c"
+            print(f"{status_icon} Gate: {result.gate_id}")
+            print(f"   Status: {result.status.value}")
+            print(f"   Passed: {result.passed}")
+            print(f"   Duration: {result.duration_ms}ms")
+
+            if result.details:
+                print(f"   Details:")
+                for k, v in result.details.items():
+                    print(f"     {k}: {v}")
+
+            if result.failures:
+                print(f"   Failures:")
+                for f in result.failures:
+                    print(f"     - {f.message}")
+                    if f.suggestion:
+                        print(f"       Suggestion: {f.suggestion}")
+
+        # Exit code based on enforcement
+        if not result.passed and result.status.value == "ENFORCED":
+            return 1
+        return 0
+
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 2
+    except Exception as e:
+        print(f"Error running gate: {e}", file=sys.stderr)
+        return 2
+
+
+def cmd_gate_bundle(args: argparse.Namespace) -> int:
+    """Handle the gate bundle command."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    from .gates.runner import run_bundle
+
+    try:
+        result = run_bundle(
+            store_root=store_root,
+            bundle_name=args.bundle,
+            batch_id=args.batch,
+            fail_fast=args.fail_fast,
+        )
+
+        if args.json:
+            print(result.to_json())
+        else:
+            status_icon = "\u2705" if result.passed else "\u274c"
+            print(f"{status_icon} Bundle: {result.bundle_name}")
+            print(f"   Total: {result.total}")
+            print(f"   Passed: {result.passed_count}")
+            print(f"   Failed: {result.failed_count}")
+            print(f"   Skipped: {result.skipped_count}")
+            print(f"   Duration: {result.duration_ms}ms")
+
+            if result.results:
+                print(f"\n   Results:")
+                for r in result.results:
+                    icon = "\u2705" if r.passed else "\u274c"
+                    print(f"     {icon} {r.gate_id} ({r.status.value})")
+                    if not r.passed and r.failures:
+                        for f in r.failures:
+                            print(f"        - {f.message}")
+
+        # Exit code 1 if any ENFORCED gates failed
+        if not result.passed:
+            return 1
+        return 0
+
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 2
+    except Exception as e:
+        print(f"Error running bundle: {e}", file=sys.stderr)
+        return 2
+
+
+def cmd_gate_explain(args: argparse.Namespace) -> int:
+    """Handle the gate explain command."""
+    from .gates.registry import get_registry
+    from .gates import definitions  # Ensure gates are registered
+
+    registry = get_registry()
+    gate = registry.get(args.gate_id)
+
+    if gate is None:
+        suggestions = registry.suggest_similar(args.gate_id)
+        print(f"Error: Unknown gate '{args.gate_id}'", file=sys.stderr)
+        if suggestions:
+            print(f"Did you mean: {', '.join(suggestions)}?", file=sys.stderr)
+        return 1
+
+    print(f"Gate: {gate.gate_id}")
+    print(f"Title: {gate.title}")
+    print(f"Status: {gate.status.value}")
+    print(f"\nDescription:")
+    print(f"  {gate.description}")
+    print(f"\nRequired Inputs: {', '.join(gate.required_inputs)}")
+    print(f"Tags: {', '.join(gate.tags)}")
+    if gate.aliases:
+        print(f"Aliases: {', '.join(gate.aliases)}")
+
+    return 0
 
 
 if __name__ == "__main__":
