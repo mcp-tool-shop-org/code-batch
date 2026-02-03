@@ -55,6 +55,7 @@ class GateContext:
     snapshot_id: Optional[str] = None
     task_ids: Optional[list[str]] = None
     cache_required: bool = False
+    run_id: Optional[str] = None  # Unique ID for this gate run
 
     def to_dict(self) -> dict:
         """Convert to dictionary for result context."""
@@ -65,7 +66,63 @@ class GateContext:
             result["snapshot_id"] = self.snapshot_id
         if self.task_ids:
             result["task_ids"] = self.task_ids
+        if self.run_id:
+            result["run_id"] = self.run_id
         return result
+
+    def get_artifact_dir(self, gate_id: str) -> Path:
+        """Get artifact directory for this gate run.
+
+        Creates directory if it doesn't exist.
+        Artifacts are stored at: indexes/gate_artifacts/<gate_id>/<run_id>/
+
+        Args:
+            gate_id: Gate identifier.
+
+        Returns:
+            Path to artifact directory.
+        """
+        if not self.run_id:
+            import uuid
+            self.run_id = str(uuid.uuid4())[:8]
+
+        artifact_dir = (
+            self.store_root / "indexes" / "gate_artifacts" / gate_id / self.run_id
+        )
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        return artifact_dir
+
+    def write_artifact(self, gate_id: str, name: str, content: str) -> Path:
+        """Write an artifact file.
+
+        Args:
+            gate_id: Gate identifier.
+            name: Artifact filename (e.g., "diff.txt").
+            content: File content.
+
+        Returns:
+            Path to written artifact.
+        """
+        artifact_dir = self.get_artifact_dir(gate_id)
+        path = artifact_dir / name
+        path.write_text(content)
+        return path
+
+    def write_artifact_json(self, gate_id: str, name: str, data: Any) -> Path:
+        """Write a JSON artifact file.
+
+        Args:
+            gate_id: Gate identifier.
+            name: Artifact filename (e.g., "report.json").
+            data: JSON-serializable data.
+
+        Returns:
+            Path to written artifact.
+        """
+        artifact_dir = self.get_artifact_dir(gate_id)
+        path = artifact_dir / name
+        path.write_text(json.dumps(data, indent=2))
+        return path
 
 
 @dataclass

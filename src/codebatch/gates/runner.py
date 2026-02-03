@@ -4,6 +4,7 @@ The runner executes gates with context, measures duration, and captures artifact
 """
 
 import time
+import uuid
 from pathlib import Path
 from typing import Optional
 
@@ -55,12 +56,14 @@ class GateRunner:
                 msg += f". Did you mean: {', '.join(suggestions)}?"
             raise ValueError(msg)
 
-        # Build context
+        # Build context with unique run ID
+        run_id = str(uuid.uuid4())[:8]
         ctx = GateContext(
             store_root=self.store_root,
             batch_id=batch_id,
             snapshot_id=snapshot_id,
             task_ids=task_ids,
+            run_id=run_id,
         )
 
         # Validate required inputs
@@ -89,6 +92,17 @@ class GateRunner:
         result.duration_ms = int((end - start) * 1000)
         result.status = gate.status
         result.context = ctx
+
+        # Collect any artifacts written during gate execution
+        artifact_dir = (
+            self.store_root / "indexes" / "gate_artifacts" / gate.gate_id / run_id
+        )
+        if artifact_dir.exists():
+            result.artifacts = [
+                str(p.relative_to(self.store_root))
+                for p in artifact_dir.iterdir()
+                if p.is_file()
+            ]
 
         return result
 

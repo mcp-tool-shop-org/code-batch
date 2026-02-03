@@ -204,32 +204,138 @@ gate-check:
 
 ## Adding a New Gate
 
-1. **Define the gate** in `src/codebatch/gates/registry.py`:
+### Step 1: Define the Gate
+
+Add your gate to `src/codebatch/gates/definitions.py`:
 
 ```python
+from .registry import register_gate
+from .result import GateContext, GateResult, GateStatus
+
 @register_gate(
     gate_id="P4-G1",
     title="My new invariant",
     description="Ensures X always equals Y when Z happens.",
-    status=GateStatus.HARNESS,
+    status=GateStatus.HARNESS,  # Start as HARNESS
     required_inputs=["store", "batch"],
     tags=["phase4", "validation"],
+    aliases=["my-gate"],  # Optional short alias
 )
 def gate_p4_g1(ctx: GateContext) -> GateResult:
-    # Implementation
-    passed = check_invariant(ctx.store, ctx.batch_id)
-    return GateResult(
+    """Check that X equals Y."""
+    result = GateResult(
         gate_id="P4-G1",
-        passed=passed,
-        details={"checked": 100},
+        passed=True,
+        status=GateStatus.HARNESS,
     )
+
+    # Perform checks
+    try:
+        value_x = get_x(ctx.store_root, ctx.batch_id)
+        value_y = get_y(ctx.store_root, ctx.batch_id)
+
+        if value_x != value_y:
+            result.add_failure(
+                message="X does not equal Y",
+                expected=str(value_y),
+                actual=str(value_x),
+                suggestion="Ensure X and Y are computed from the same source",
+            )
+
+        # Add details for reporting
+        result.details = {
+            "x_value": value_x,
+            "y_value": value_y,
+            "match": value_x == value_y,
+        }
+
+    except Exception as e:
+        result.add_failure(message=f"Check error: {e}")
+
+    return result
 ```
 
-2. **Add to bundle** if needed (in `bundles.py`).
+### Step 2: Register in `_REGISTERED_GATES`
 
-3. **Write tests** to verify the gate logic.
+At the bottom of `definitions.py`, add your gate function to the list:
 
-4. **Promote to ENFORCED** when ready.
+```python
+_REGISTERED_GATES = [
+    gate_p1_g1,
+    gate_p2_g1,
+    # ... existing gates ...
+    gate_p4_g1,  # Add new gate here
+]
+```
+
+### Step 3: Write Tests
+
+Add tests in `tests/test_gates.py` or a dedicated test file:
+
+```python
+class TestGateP4G1:
+    """Tests for P4-G1 gate."""
+
+    def test_passes_when_x_equals_y(self, store_with_batch):
+        """Should pass when X equals Y."""
+        store, batch_id = store_with_batch
+        runner = GateRunner(store)
+        result = runner.run("P4-G1", batch_id=batch_id)
+
+        assert result.passed is True
+        assert result.details["match"] is True
+
+    def test_fails_when_x_differs_from_y(self, store_with_mismatch):
+        """Should fail when X differs from Y."""
+        store, batch_id = store_with_mismatch
+        runner = GateRunner(store)
+        result = runner.run("P4-G1", batch_id=batch_id)
+
+        assert result.passed is False
+        assert len(result.failures) > 0
+```
+
+### Step 4: Write Artifacts (Optional)
+
+If your gate produces debugging output, use the artifact API:
+
+```python
+@register_gate(...)
+def gate_p4_g1(ctx: GateContext) -> GateResult:
+    result = GateResult(gate_id="P4-G1", passed=True)
+
+    # Write comparison data for debugging
+    comparison = {"x": value_x, "y": value_y}
+    artifact_path = ctx.write_artifact_json(
+        "P4-G1", "comparison.json", comparison
+    )
+
+    # Artifacts are automatically collected by the runner
+    return result
+```
+
+Artifacts are stored at: `indexes/gate_artifacts/<gate_id>/<run_id>/`
+
+### Step 5: Test Your Gate
+
+```bash
+# Run the gate manually
+codebatch gate-run P4-G1 --store ./mystore --batch batch-123
+
+# Run with JSON output for debugging
+codebatch gate-run P4-G1 --store ./mystore --batch batch-123 --json
+
+# Explain the gate
+codebatch gate-explain P4-G1
+```
+
+### Step 6: Promote to ENFORCED
+
+Once the gate is stable and passing consistently:
+
+1. Change `status=GateStatus.HARNESS` to `status=GateStatus.ENFORCED`
+2. Add to the "release" bundle (automatic for ENFORCED gates)
+3. Update documentation if needed
 
 ## Troubleshooting
 
@@ -239,7 +345,10 @@ def gate_p4_g1(ctx: GateContext) -> GateResult:
 Error: Unknown gate 'X1'. Did you mean 'P1-G1'?
 ```
 
-Use `codebatch gate list` to see all available gates.
+**Solutions:**
+- Use `codebatch gate-list` to see all available gates
+- Check for typos - the system suggests similar gates
+- Use the canonical ID (e.g., `P3-A1`) or a valid alias (e.g., `A1`)
 
 ### Missing required input
 
@@ -247,17 +356,63 @@ Use `codebatch gate list` to see all available gates.
 Error: Gate 'P3-A1' requires 'batch' but none provided.
 ```
 
-Provide all required inputs: `--store`, `--batch`, etc.
+**Solutions:**
+- Check what inputs the gate needs: `codebatch gate-explain P3-A1`
+- Provide all required inputs: `--store`, `--batch`, etc.
+- Some gates only need `--store`, others need `--batch` as well
+
+### Gate runs but always fails
+
+**Debugging steps:**
+1. Run with JSON output to see details:
+   ```bash
+   codebatch gate-run P3-A1 --store ./store --batch batch-123 --json
+   ```
+
+2. Check the `failures` array for specific error messages
+
+3. Look at `details` for gate-specific diagnostic data
+
+4. Check artifacts at `indexes/gate_artifacts/<gate_id>/`
 
 ### Reproducing CI failures
 
 Run the exact same command locally:
 
 ```bash
-codebatch gate run-bundle release --store ./store --batch batch-123
+codebatch gate-bundle release --store ./store --batch batch-123 --json
 ```
 
-Check `gate_artifacts/` for detailed comparison data.
+**Tips:**
+- Ensure your local store has the same content as CI
+- Check `gate_artifacts/` for detailed comparison data
+- Run individual failing gates for faster iteration
+
+### Bundle shows gates as "skipped"
+
+Gates are skipped for these reasons:
+- **PLACEHOLDER status**: Gate is defined but not implemented
+- **Missing required inputs**: Gate needs `--batch` but none provided
+- **Validation failure**: Gate prerequisites aren't met
+
+Run with verbose output to see skip reasons.
+
+### Performance issues
+
+If gates are slow:
+1. Check if LMDB cache exists (gates like P3-A1 use it for comparison)
+2. Ensure your batch isn't excessively large
+3. Use `--fail-fast` to stop on first failure
+
+### Cache vs. Scan mismatches
+
+If P3-A1 (cache equivalence) fails:
+1. Check the comparison artifact at `indexes/gate_artifacts/P3-A1/`
+2. The file shows which outputs differ
+3. Common causes:
+   - Corrupt cache (rebuild with `codebatch index-build --rebuild`)
+   - Different query engines (ensure same version)
+   - Timing issues (use canonical comparison without timestamps)
 
 ## Gate Invariants
 
