@@ -158,6 +158,83 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
         else:
             result["value"] = f"<{type(val).__name__}>"
 
+    # Expression statements (Expr) - capture the value
+    if node_type == "Expr" and hasattr(node, "value") and node.value:
+        result["value"] = _ast_node_to_dict(node.value, depth + 1, max_depth)
+
+    # Call expressions
+    if node_type == "Call":
+        if hasattr(node, "func") and node.func:
+            result["func"] = _ast_node_to_dict(node.func, depth + 1, max_depth)
+        if hasattr(node, "args") and node.args:
+            result["args"] = [
+                _ast_node_to_dict(a, depth + 1, max_depth)
+                for a in node.args
+            ]
+        if hasattr(node, "keywords") and node.keywords:
+            result["keywords"] = [
+                {"arg": kw.arg, "value": _ast_node_to_dict(kw.value, depth + 1, max_depth)}
+                for kw in node.keywords
+            ]
+
+    # Attribute access
+    if node_type == "Attribute" and hasattr(node, "value") and node.value:
+        result["value"] = _ast_node_to_dict(node.value, depth + 1, max_depth)
+
+    # Subscript
+    if node_type == "Subscript":
+        if hasattr(node, "value") and node.value:
+            result["value"] = _ast_node_to_dict(node.value, depth + 1, max_depth)
+        if hasattr(node, "slice") and node.slice:
+            result["slice"] = _ast_node_to_dict(node.slice, depth + 1, max_depth)
+
+    # Binary operations
+    if node_type in ("BinOp", "Compare", "BoolOp"):
+        if hasattr(node, "left") and node.left:
+            result["left"] = _ast_node_to_dict(node.left, depth + 1, max_depth)
+        if hasattr(node, "right") and node.right:
+            result["right"] = _ast_node_to_dict(node.right, depth + 1, max_depth)
+        if hasattr(node, "comparators") and node.comparators:
+            result["comparators"] = [
+                _ast_node_to_dict(c, depth + 1, max_depth)
+                for c in node.comparators
+            ]
+        if hasattr(node, "values") and node.values:
+            result["values"] = [
+                _ast_node_to_dict(v, depth + 1, max_depth)
+                for v in node.values
+            ]
+
+    # Unary operations
+    if node_type == "UnaryOp" and hasattr(node, "operand") and node.operand:
+        result["operand"] = _ast_node_to_dict(node.operand, depth + 1, max_depth)
+
+    # Return/Yield statements
+    if node_type in ("Return", "Yield", "YieldFrom"):
+        if hasattr(node, "value") and node.value:
+            result["value"] = _ast_node_to_dict(node.value, depth + 1, max_depth)
+
+    # List/Tuple/Set literals
+    if node_type in ("List", "Tuple", "Set"):
+        if hasattr(node, "elts") and node.elts:
+            result["elts"] = [
+                _ast_node_to_dict(e, depth + 1, max_depth)
+                for e in node.elts
+            ]
+
+    # Dict literals
+    if node_type == "Dict":
+        if hasattr(node, "keys") and node.keys:
+            result["keys"] = [
+                _ast_node_to_dict(k, depth + 1, max_depth) if k else None
+                for k in node.keys
+            ]
+        if hasattr(node, "values") and node.values:
+            result["values"] = [
+                _ast_node_to_dict(v, depth + 1, max_depth)
+                for v in node.values
+            ]
+
     # For body-containing nodes, include children
     if hasattr(node, "body") and isinstance(node.body, list):
         result["body"] = [

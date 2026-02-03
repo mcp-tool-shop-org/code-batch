@@ -942,20 +942,193 @@ class UserService {
 
 
 class TestGateP8LintAst:
-    """P8-LINT-AST: AST-aware linting must detect semantic issues.
+    """P8-LINT-AST: AST-aware linting must detect semantic issues."""
 
-    These tests will be implemented in Commit 7.
-    """
-
-    @pytest.mark.skip(reason="Commit 7 - AST linting not yet implemented")
     def test_unused_import_detected(self):
         """Must detect unused imports."""
-        pass
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.lint import lint_unused_imports
 
-    @pytest.mark.skip(reason="Commit 7 - AST linting not yet implemented")
+        code = '''
+import os
+import sys
+from pathlib import Path
+
+def main():
+    print(sys.argv)
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        diagnostics = lint_unused_imports(ast_dict, "test.py")
+
+        # Should detect os and Path as unused
+        unused_names = [d["message"] for d in diagnostics]
+        assert any("'os'" in msg for msg in unused_names), f"Unused 'os' not detected: {unused_names}"
+        assert any("'Path'" in msg for msg in unused_names), f"Unused 'Path' not detected: {unused_names}"
+
+        # sys should NOT be flagged (it's used)
+        assert not any("'sys'" in msg for msg in unused_names), f"'sys' incorrectly flagged as unused"
+
+    def test_used_import_not_flagged(self):
+        """Used imports should not be flagged."""
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.lint import lint_unused_imports
+
+        code = '''
+import json
+from typing import List, Dict
+
+def serialize(data: Dict) -> str:
+    items: List[str] = []
+    return json.dumps(data)
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        diagnostics = lint_unused_imports(ast_dict, "test.py")
+
+        # All imports are used
+        assert len(diagnostics) == 0, f"False positives: {diagnostics}"
+
     def test_unused_variable_detected(self):
         """Must detect unused variables."""
-        pass
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.lint import lint_unused_variables
+
+        code = '''
+def process():
+    x = 1
+    y = 2
+    z = 3
+    return z
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        diagnostics = lint_unused_variables(ast_dict, "test.py")
+
+        # x and y are unused
+        unused_names = [d["message"] for d in diagnostics]
+        assert any("'x'" in msg for msg in unused_names), f"Unused 'x' not detected: {unused_names}"
+        assert any("'y'" in msg for msg in unused_names), f"Unused 'y' not detected: {unused_names}"
+
+        # z is used
+        assert not any("'z'" in msg for msg in unused_names), f"'z' incorrectly flagged as unused"
+
+    def test_underscore_variable_not_flagged(self):
+        """Variables starting with _ should not be flagged."""
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.lint import lint_unused_variables
+
+        code = '''
+def process():
+    _unused = get_value()
+    _ = ignored()
+    __dunder = special()
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        diagnostics = lint_unused_variables(ast_dict, "test.py")
+
+        # Underscore-prefixed variables are intentionally unused
+        assert len(diagnostics) == 0, f"False positives for underscore vars: {diagnostics}"
+
+    def test_variable_shadowing_detected(self):
+        """Must detect variable shadowing."""
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.lint import lint_variable_shadowing
+
+        code = '''
+x = 10
+
+def outer():
+    x = 20
+
+    def inner():
+        x = 30
+        return x
+
+    return inner()
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        diagnostics = lint_variable_shadowing(ast_dict, "test.py")
+
+        # Should detect shadowing
+        assert len(diagnostics) >= 1, f"No shadowing detected: {diagnostics}"
+        assert any("shadows" in d["message"].lower() for d in diagnostics)
+
+    def test_lint_python_ast_integration(self):
+        """lint_python_ast should run all AST rules."""
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.lint import lint_python_ast
+
+        code = '''
+import os
+
+def process():
+    x = 1
+    return 42
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        diagnostics = lint_python_ast(ast_dict, "test.py", {})
+
+        # Should have both L101 (unused import) and L102 (unused variable)
+        codes = [d["code"] for d in diagnostics]
+        assert "L101" in codes, f"L101 not in {codes}"
+        assert "L102" in codes, f"L102 not in {codes}"
+
+    def test_lint_executor_uses_ast_rules(self, tmp_path):
+        """lint_executor should use AST rules when AST available."""
+        from codebatch.store import init_store
+        from codebatch.snapshot import SnapshotBuilder
+        from codebatch.batch import BatchManager
+        from codebatch.runner import ShardRunner
+        from codebatch.common import object_shard_prefix
+        from codebatch.tasks.parse import parse_executor
+        from codebatch.tasks.lint import lint_executor
+
+        # Create test corpus with unused import
+        corpus = tmp_path / "corpus"
+        corpus.mkdir()
+
+        test_file = corpus / "test.py"
+        test_file.write_text('''
+import os
+import sys
+
+print(sys.version)
+'''.strip())
+
+        # Initialize store and create snapshot
+        store = tmp_path / "store"
+        init_store(store)
+
+        builder = SnapshotBuilder(store)
+        snapshot_id = builder.build(corpus)
+
+        batch_mgr = BatchManager(store)
+        batch_id = batch_mgr.init_batch(snapshot_id, pipeline="full")
+
+        # Get shards
+        records = builder.load_file_index(snapshot_id)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
+
+        # Run parse first (lint depends on parse output)
+        runner = ShardRunner(store)
+        for shard_id in shards_with_files:
+            runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+            runner.run_shard(batch_id, "04_lint", shard_id, lint_executor)
+
+        # Query lint outputs
+        from codebatch.query import QueryEngine
+        engine = QueryEngine(store)
+        all_outputs = engine.query_outputs(batch_id, "04_lint")
+
+        diagnostics = [o for o in all_outputs if o.get("kind") == "diagnostic"]
+        codes = [d.get("code") for d in diagnostics]
+
+        # Should have L101 for unused 'os' import
+        assert "L101" in codes, f"L101 not found in lint output. Codes: {codes}"
 
 
 class TestGateP8Metrics:
