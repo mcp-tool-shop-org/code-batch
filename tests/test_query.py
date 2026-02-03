@@ -4,6 +4,7 @@ import pytest
 from pathlib import Path
 
 from codebatch.batch import BatchManager
+from codebatch.common import object_shard_prefix
 from codebatch.query import QueryEngine
 from codebatch.runner import ShardRunner
 from codebatch.snapshot import SnapshotBuilder
@@ -43,7 +44,7 @@ def batch_with_outputs(store: Path, snapshot_id: str) -> str:
     records = runner.snapshot_builder.load_file_index(snapshot_id)
 
     # Get unique shards
-    shards_with_files = set(r["object"][:2] for r in records)
+    shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
 
     for shard_id in shards_with_files:
         runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
@@ -168,7 +169,7 @@ class TestQueryWithDiagnostics:
         # Run parse
         runner = ShardRunner(store)
         records = builder.load_file_index(snap_id)
-        shard_id = records[0]["object"][:2]
+        shard_id = object_shard_prefix(records[0]["object"])
         runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
 
         # Query diagnostics

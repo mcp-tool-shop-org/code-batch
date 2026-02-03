@@ -11,6 +11,7 @@ from pathlib import Path
 
 from codebatch.batch import BatchManager
 from codebatch.cas import ObjectStore
+from codebatch.common import object_shard_prefix
 from codebatch.query import QueryEngine
 from codebatch.runner import ShardRunner
 from codebatch.snapshot import SnapshotBuilder
@@ -57,7 +58,7 @@ class TestCleanRoomRun:
         # 3. Run all shards that have files
         runner = ShardRunner(clean_store)
         records = snapshot_builder.load_file_index(snapshot_id)
-        shards_with_files = set(r["object"][:2] for r in records)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
 
         for shard_id in shards_with_files:
             state = runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
@@ -94,7 +95,7 @@ class TestCleanRoomRun:
         runner = ShardRunner(clean_store)
 
         records = snapshot_builder.load_file_index(snapshot_id)
-        shards_with_files = set(r["object"][:2] for r in records)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
 
         for shard_id in shards_with_files:
             runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
@@ -129,7 +130,7 @@ class TestChaosResilience:
         runner = ShardRunner(clean_store)
 
         records = snapshot_builder.load_file_index(snapshot_id)
-        shard_id = records[0]["object"][:2]
+        shard_id = object_shard_prefix(records[0]["object"])
 
         call_count = [0]
 
@@ -157,7 +158,7 @@ class TestChaosResilience:
         runner = ShardRunner(clean_store)
 
         records = snapshot_builder.load_file_index(snapshot_id)
-        shard_id = records[0]["object"][:2]
+        shard_id = object_shard_prefix(records[0]["object"])
 
         # Run once
         runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
@@ -188,7 +189,7 @@ class TestDriftResistance:
         runner = ShardRunner(clean_store)
 
         records = snapshot_builder.load_file_index(snapshot_id)
-        shards_with_files = set(r["object"][:2] for r in records)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
 
         # Run all shards with files
         for shard_id in shards_with_files:
@@ -253,8 +254,9 @@ class TestDriftResistance:
 
         assert ref1 == ref2
 
-        # Only one object exists
-        object_path = clean_store / "objects" / "sha256" / ref1[:2] / ref1[2:4] / ref1
+        # Only one object exists - extract hex hash from sha256:<hex>
+        hex_hash = ref1.split(":")[1]
+        object_path = clean_store / "objects" / "sha256" / hex_hash[:2] / hex_hash[2:4] / hex_hash
         assert object_path.exists()
 
 
@@ -270,7 +272,7 @@ class TestSemanticOutputsAsTruth:
         runner = ShardRunner(clean_store)
 
         records = snapshot_builder.load_file_index(snapshot_id)
-        shards_with_files = set(r["object"][:2] for r in records)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
 
         for shard_id in shards_with_files:
             runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
