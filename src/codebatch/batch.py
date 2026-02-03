@@ -27,7 +27,6 @@ def generate_batch_id() -> str:
 
 
 # Pipeline definitions
-# Note: 'analyze' pipeline is Phase 2 - registered but 02_analyze produces no outputs
 PIPELINES = {
     "parse": {
         "description": "Parse source files and emit AST + diagnostics",
@@ -44,7 +43,7 @@ PIPELINES = {
         ],
     },
     "analyze": {
-        "description": "Parse and analyze source files (Phase 2: analyze step is stub)",
+        "description": "Parse and analyze source files",
         "tasks": [
             {
                 "task_id": "01_parse",
@@ -60,7 +59,39 @@ PIPELINES = {
                 "type": "analyze",
                 "depends_on": ["01_parse"],
                 "config": {},
-                # Phase 2: not implemented - produces no outputs
+            },
+        ],
+    },
+    "full": {
+        "description": "Complete Phase 2 pipeline: parse -> analyze -> symbols -> lint",
+        "tasks": [
+            {
+                "task_id": "01_parse",
+                "type": "parse",
+                "depends_on": [],
+                "config": {
+                    "languages": ["python", "javascript", "typescript"],
+                    "emit_ast": True,
+                    "emit_diagnostics": True,
+                },
+            },
+            {
+                "task_id": "02_analyze",
+                "type": "analyze",
+                "depends_on": ["01_parse"],
+                "config": {},
+            },
+            {
+                "task_id": "03_symbols",
+                "type": "symbols",
+                "depends_on": ["01_parse"],
+                "config": {},
+            },
+            {
+                "task_id": "04_lint",
+                "type": "lint",
+                "depends_on": ["01_parse"],
+                "config": {},
             },
         ],
     },
