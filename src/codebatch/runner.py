@@ -8,20 +8,34 @@ State transitions are atomic and never corrupt prior results.
 
 import json
 import os
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Iterable, Iterator, Optional, Union
 
 from .batch import BatchManager
 from .cas import ObjectStore
+from .common import SCHEMA_VERSION, PRODUCER, utc_now_z, object_shard_prefix
 from .snapshot import SnapshotBuilder
+
+
+class _CountingIterator:
+    """Iterator wrapper that counts items as they're yielded."""
+
+    def __init__(self, iterable: Iterable):
+        self._iterator = iter(iterable)
+        self.count = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        item = next(self._iterator)
+        self.count += 1
+        return item
 
 
 class ShardRunner:
     """Runs individual shards with state management and atomic output commits."""
-
-    SCHEMA_VERSION = "1.0"
 
     def __init__(self, store_root: Path):
         """Initialize the shard runner.
@@ -49,8 +63,8 @@ class ShardRunner:
         shard_dir = self._shard_dir(batch_id, task_id, shard_id)
         state_path = shard_dir / "state.json"
 
-        # Atomic write via temp file
-        temp_path = state_path.with_suffix(".tmp")
+        # Atomic write via temp file with PID for race safety
+        temp_path = state_path.with_suffix(f".tmp.{os.getpid()}")
         with open(temp_path, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
         # On Windows, rename fails if target exists; use replace instead
@@ -70,8 +84,8 @@ class ShardRunner:
     ) -> None:
         """Append an event record to events.jsonl."""
         record = {
-            "schema_version": self.SCHEMA_VERSION,
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "schema_version": SCHEMA_VERSION,
+            "ts": utc_now_z(),
             "event": event,
             "batch_id": batch_id,
         }
@@ -92,6 +106,27 @@ class ShardRunner:
             f.write(json.dumps(record, separators=(",", ":")))
             f.write("\n")
 
+    def _iter_shard_files(
+        self, snapshot_id: str, shard_id: str
+    ) -> Iterator[dict]:
+        """Stream files assigned to a shard based on hash prefix.
+
+        Files are assigned to shards based on the first two hex chars of their object hash.
+        Uses streaming to avoid loading entire index into memory.
+
+        Args:
+            snapshot_id: Snapshot ID.
+            shard_id: Shard ID (two hex chars, e.g., 'ab').
+
+        Yields:
+            File index records assigned to this shard.
+        """
+        for record in self.snapshot_builder.iter_file_index(snapshot_id):
+            # Extract shard prefix from object ref (handles both sha256:<hex> and bare hex)
+            obj_shard = object_shard_prefix(record["object"])
+            if obj_shard == shard_id:
+                yield record
+
     def _get_shard_files(
         self, snapshot_id: str, shard_id: str
     ) -> list[dict]:
@@ -106,24 +141,24 @@ class ShardRunner:
         Returns:
             List of file index records assigned to this shard.
         """
-        records = self.snapshot_builder.load_file_index(snapshot_id)
-        return [r for r in records if r["object"][:2] == shard_id]
+        return list(self._iter_shard_files(snapshot_id, shard_id))
 
     def run_shard(
         self,
         batch_id: str,
         task_id: str,
         shard_id: str,
-        executor: Callable[[dict, list[dict], "ShardRunner"], list[dict]],
+        executor: Callable[[dict, Iterable[dict], "ShardRunner"], Iterable[dict]],
     ) -> dict:
         """Run a shard with the given executor.
 
         The executor receives:
           - task config dict
-          - list of file records for this shard
+          - iterable of file records for this shard (may be iterator or list)
           - this runner instance (for CAS access)
 
-        The executor should return a list of output records.
+        The executor should return an iterable of output records.
+        Executors that need random access can call list() on the input.
 
         Args:
             batch_id: Batch ID.
@@ -151,18 +186,19 @@ class ShardRunner:
 
         # Transition to running
         state["status"] = "running"
-        state["started_at"] = datetime.now(timezone.utc).isoformat()
+        state["started_at"] = utc_now_z()
         self._save_state(batch_id, task_id, shard_id, state)
 
-        # Log shard_started event
-        self._append_event(
-            task_events_path,
-            "shard_started",
-            batch_id,
-            task_id=task_id,
-            shard_id=shard_id,
-            attempt=attempt,
-        )
+        # Log shard_started event to both task and batch
+        for events_path in [task_events_path, batch_events_path]:
+            self._append_event(
+                events_path,
+                "shard_started",
+                batch_id,
+                task_id=task_id,
+                shard_id=shard_id,
+                attempt=attempt,
+            )
 
         start_time = datetime.now(timezone.utc)
 
@@ -172,27 +208,30 @@ class ShardRunner:
             batch = self.batch_manager.load_batch(batch_id)
             snapshot_id = batch["snapshot_id"]
 
-            # Get files for this shard
-            shard_files = self._get_shard_files(snapshot_id, shard_id)
+            # Get files for this shard as streaming iterator with counting
+            # Executors that need random access should materialize with list()
+            shard_files = _CountingIterator(self._iter_shard_files(snapshot_id, shard_id))
 
-            # Execute
+            # Execute - output_records may be iterator or list
             output_records = executor(task["config"], shard_files, self)
 
-            # Write outputs atomically
+            # Write outputs atomically, counting as we go
             outputs_path = shard_dir / "outputs.index.jsonl"
-            temp_outputs_path = outputs_path.with_suffix(".tmp")
+            temp_outputs_path = outputs_path.with_suffix(f".tmp.{os.getpid()}")
+            outputs_written = 0
 
             with open(temp_outputs_path, "w", encoding="utf-8") as f:
                 for record in output_records:
                     # Ensure required fields
-                    record.setdefault("schema_version", self.SCHEMA_VERSION)
+                    record.setdefault("schema_version", SCHEMA_VERSION)
                     record.setdefault("snapshot_id", snapshot_id)
                     record.setdefault("batch_id", batch_id)
                     record.setdefault("task_id", task_id)
                     record.setdefault("shard_id", shard_id)
-                    record.setdefault("ts", datetime.now(timezone.utc).isoformat())
+                    record.setdefault("ts", utc_now_z())
                     f.write(json.dumps(record, separators=(",", ":")))
                     f.write("\n")
+                    outputs_written += 1
 
             # Atomic rename (use replace for Windows compatibility)
             temp_outputs_path.replace(outputs_path)
@@ -203,24 +242,25 @@ class ShardRunner:
 
             # Transition to done
             state["status"] = "done"
-            state["completed_at"] = end_time.isoformat()
+            state["completed_at"] = utc_now_z()
             state["stats"] = {
-                "files_processed": len(shard_files),
-                "outputs_written": len(output_records),
+                "files_processed": shard_files.count,
+                "outputs_written": outputs_written,
             }
             self._save_state(batch_id, task_id, shard_id, state)
 
-            # Log shard_completed event
-            self._append_event(
-                task_events_path,
-                "shard_completed",
-                batch_id,
-                task_id=task_id,
-                shard_id=shard_id,
-                attempt=attempt,
-                duration_ms=duration_ms,
-                stats=state["stats"],
-            )
+            # Log shard_completed event to both task and batch
+            for events_path in [task_events_path, batch_events_path]:
+                self._append_event(
+                    events_path,
+                    "shard_completed",
+                    batch_id,
+                    task_id=task_id,
+                    shard_id=shard_id,
+                    attempt=attempt,
+                    duration_ms=duration_ms,
+                    stats=state["stats"],
+                )
 
         except Exception as e:
             # Calculate duration
@@ -233,21 +273,22 @@ class ShardRunner:
                 "message": str(e),
             }
             state["status"] = "failed"
-            state["completed_at"] = end_time.isoformat()
+            state["completed_at"] = utc_now_z()
             state["error"] = error_info
             self._save_state(batch_id, task_id, shard_id, state)
 
-            # Log shard_failed event
-            self._append_event(
-                task_events_path,
-                "shard_failed",
-                batch_id,
-                task_id=task_id,
-                shard_id=shard_id,
-                attempt=attempt,
-                duration_ms=duration_ms,
-                error=error_info,
-            )
+            # Log shard_failed event to both task and batch
+            for events_path in [task_events_path, batch_events_path]:
+                self._append_event(
+                    events_path,
+                    "shard_failed",
+                    batch_id,
+                    task_id=task_id,
+                    shard_id=shard_id,
+                    attempt=attempt,
+                    duration_ms=duration_ms,
+                    error=error_info,
+                )
 
         return state
 
@@ -278,7 +319,8 @@ class ShardRunner:
         # Reset to ready
         new_state = {
             "schema_name": "codebatch.shard_state",
-            "schema_version": self.SCHEMA_VERSION,
+            "schema_version": SCHEMA_VERSION,
+            "producer": PRODUCER,
             "shard_id": shard_id,
             "task_id": task_id,
             "batch_id": batch_id,

@@ -5,6 +5,7 @@ import pytest
 from pathlib import Path
 
 from codebatch.batch import BatchManager
+from codebatch.common import object_shard_prefix
 from codebatch.runner import ShardRunner
 from codebatch.snapshot import SnapshotBuilder
 
@@ -68,7 +69,7 @@ class TestShardRunner:
         # Find a shard with files
         shard_id = None
         for r in records:
-            shard_id = r["object"][:2]
+            shard_id = object_shard_prefix(r["object"])
             break
 
         assert shard_id is not None, "No files in snapshot"
@@ -108,7 +109,7 @@ class TestShardRunner:
         batch = runner.batch_manager.load_batch(batch_id)
         snapshot_id = batch["snapshot_id"]
         records = runner.snapshot_builder.load_file_index(snapshot_id)
-        shard_id = records[0]["object"][:2]
+        shard_id = object_shard_prefix(records[0]["object"])
 
         # Run once
         runner.run_shard(batch_id, "01_parse", shard_id, simple_executor)
@@ -170,7 +171,7 @@ class TestShardRunner:
         batch = runner.batch_manager.load_batch(batch_id)
         snapshot_id = batch["snapshot_id"]
         records = runner.snapshot_builder.load_file_index(snapshot_id)
-        shard_id = records[0]["object"][:2]
+        shard_id = object_shard_prefix(records[0]["object"])
 
         runner.run_shard(batch_id, "01_parse", shard_id, simple_executor)
 
@@ -193,7 +194,7 @@ class TestShardRunner:
         batch = runner.batch_manager.load_batch(batch_id)
         snapshot_id = batch["snapshot_id"]
         records = runner.snapshot_builder.load_file_index(snapshot_id)
-        shard_id = records[0]["object"][:2]
+        shard_id = object_shard_prefix(records[0]["object"])
 
         runner.run_shard(batch_id, "01_parse", shard_id, simple_executor)
 
