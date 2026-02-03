@@ -402,15 +402,156 @@ def standalone_func():
 
 
 class TestGateP8Roundtrip:
-    """P8-ROUNDTRIP: Parse -> Symbols -> Query must work end-to-end.
+    """P8-ROUNDTRIP: Parse -> Symbols -> Query must work end-to-end."""
 
-    These tests will be fully implemented in Commit 4.
-    """
-
-    @pytest.mark.skip(reason="Commit 4 - roundtrip tests not yet implemented")
-    def test_full_pipeline_produces_queryable_symbols(self):
+    def test_full_pipeline_produces_queryable_symbols(self, tmp_path):
         """Full pipeline must produce symbols queryable by name."""
-        pass
+        from codebatch.store import init_store
+        from codebatch.snapshot import SnapshotBuilder
+        from codebatch.batch import BatchManager
+        from codebatch.runner import ShardRunner
+        from codebatch.query import QueryEngine
+        from codebatch.common import object_shard_prefix
+        from codebatch.tasks.parse import parse_executor
+        from codebatch.tasks.symbols import symbols_executor
+        import json
+
+        # Create test corpus
+        corpus = tmp_path / "corpus"
+        corpus.mkdir()
+
+        test_file = corpus / "example.py"
+        test_file.write_text('''
+import os
+from pathlib import Path
+
+class Calculator:
+    """A simple calculator class."""
+
+    def add(self, a, b):
+        result = a + b
+        return result
+
+    def subtract(self, a, b):
+        return a - b
+
+def main():
+    calc = Calculator()
+    print(calc.add(1, 2))
+'''.strip())
+
+        # Initialize store
+        store = tmp_path / "store"
+        init_store(store)
+
+        # Create snapshot
+        builder = SnapshotBuilder(store)
+        snapshot_id = builder.build(corpus)
+
+        # Create batch with full pipeline
+        batch_mgr = BatchManager(store)
+        batch_id = batch_mgr.init_batch(snapshot_id, pipeline="full")
+
+        # Get shards with files
+        records = builder.load_file_index(snapshot_id)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
+
+        # Run tasks using proper API
+        runner = ShardRunner(store)
+        for shard_id in shards_with_files:
+            runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+            runner.run_shard(batch_id, "03_symbols", shard_id, symbols_executor)
+
+        # Query symbols
+        engine = QueryEngine(store)
+        all_outputs = engine.query_outputs(batch_id, "03_symbols")
+
+        # Filter to symbol kind
+        symbols = [o for o in all_outputs if o.get("kind") == "symbol"]
+        symbol_names = [s.get("name") for s in symbols]
+
+        # Verify real names are present
+        assert "Calculator" in symbol_names, f"Class 'Calculator' not found in {symbol_names}"
+        assert "add" in symbol_names, f"Method 'add' not found in {symbol_names}"
+        assert "subtract" in symbol_names, f"Method 'subtract' not found in {symbol_names}"
+        assert "main" in symbol_names, f"Function 'main' not found in {symbol_names}"
+
+        # Verify no placeholder names
+        for name in symbol_names:
+            assert not name.startswith("function_"), f"Placeholder: {name}"
+            assert not name.startswith("class_"), f"Placeholder: {name}"
+
+        # Filter edges
+        edges = [o for o in all_outputs if o.get("kind") == "edge"]
+        edge_targets = [e.get("target") for e in edges]
+
+        # Verify import edges have real names
+        assert "os" in edge_targets, f"Import 'os' not found in {edge_targets}"
+        assert "pathlib.Path" in edge_targets, f"Import 'pathlib.Path' not found in {edge_targets}"
+
+    def test_symbols_have_correct_scope(self, tmp_path):
+        """Symbols must have correct scope tracking through pipeline."""
+        from codebatch.store import init_store
+        from codebatch.snapshot import SnapshotBuilder
+        from codebatch.batch import BatchManager
+        from codebatch.runner import ShardRunner
+        from codebatch.query import QueryEngine
+        from codebatch.common import object_shard_prefix
+        from codebatch.tasks.parse import parse_executor
+        from codebatch.tasks.symbols import symbols_executor
+
+        # Create test corpus
+        corpus = tmp_path / "corpus"
+        corpus.mkdir()
+
+        test_file = corpus / "scoped.py"
+        test_file.write_text('''
+class Outer:
+    class_attr = 1
+
+    def method(self, x):
+        local_var = x * 2
+        return local_var
+'''.strip())
+
+        # Initialize store
+        store = tmp_path / "store"
+        init_store(store)
+
+        # Create snapshot and batch
+        builder = SnapshotBuilder(store)
+        snapshot_id = builder.build(corpus)
+
+        batch_mgr = BatchManager(store)
+        batch_id = batch_mgr.init_batch(snapshot_id, pipeline="full")
+
+        # Get shards with files
+        records = builder.load_file_index(snapshot_id)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
+
+        # Run tasks
+        runner = ShardRunner(store)
+        for shard_id in shards_with_files:
+            runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+            runner.run_shard(batch_id, "03_symbols", shard_id, symbols_executor)
+
+        # Query symbols
+        engine = QueryEngine(store)
+        all_outputs = engine.query_outputs(batch_id, "03_symbols")
+        symbols = [o for o in all_outputs if o.get("kind") == "symbol"]
+
+        # Find specific symbols and check scope
+        outer = next((s for s in symbols if s["name"] == "Outer"), None)
+        assert outer is not None
+        assert outer["scope"] == "module"
+
+        method = next((s for s in symbols if s["name"] == "method"), None)
+        assert method is not None
+        assert method["scope"] == "Outer"
+
+        local_var = next((s for s in symbols if s["name"] == "local_var"), None)
+        assert local_var is not None
+        assert local_var["scope"] == "method"
 
 
 class TestGateP8TreeSitter:
