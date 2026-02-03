@@ -1132,15 +1132,197 @@ print(sys.version)
 
 
 class TestGateP8Metrics:
-    """P8-METRICS: Analyze task must produce cyclomatic complexity.
+    """P8-METRICS: Analyze task must produce cyclomatic complexity."""
 
-    These tests will be implemented in Commit 8.
-    """
+    def test_simple_complexity(self):
+        """Simple function should have complexity 1."""
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.analyze import calculate_function_complexity
 
-    @pytest.mark.skip(reason="Commit 8 - complexity metrics not yet implemented")
-    def test_complexity_calculated(self):
-        """Must calculate cyclomatic complexity."""
-        pass
+        code = '''
+def simple():
+    return 42
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        func_node = ast_dict["body"][0]
+
+        complexity = calculate_function_complexity(func_node)
+        assert complexity == 1, f"Simple function should have complexity 1, got {complexity}"
+
+    def test_if_statement_complexity(self):
+        """If statement increases complexity."""
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.analyze import calculate_function_complexity
+
+        code = '''
+def conditional(x):
+    if x > 0:
+        return "positive"
+    return "non-positive"
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        func_node = ast_dict["body"][0]
+
+        complexity = calculate_function_complexity(func_node)
+        assert complexity == 2, f"Expected complexity 2 (1 base + 1 if), got {complexity}"
+
+    def test_nested_if_complexity(self):
+        """Nested if statements add complexity."""
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.analyze import calculate_function_complexity
+
+        code = '''
+def nested(x):
+    if x > 0:
+        if x > 10:
+            return "large"
+        return "small"
+    return "negative"
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        func_node = ast_dict["body"][0]
+
+        complexity = calculate_function_complexity(func_node)
+        assert complexity == 3, f"Expected complexity 3 (1 base + 2 ifs), got {complexity}"
+
+    def test_loop_complexity(self):
+        """Loops increase complexity."""
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.analyze import calculate_function_complexity
+
+        code = '''
+def loopy(items):
+    for item in items:
+        while item > 0:
+            item -= 1
+    return items
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        func_node = ast_dict["body"][0]
+
+        complexity = calculate_function_complexity(func_node)
+        assert complexity == 3, f"Expected complexity 3 (1 base + 1 for + 1 while), got {complexity}"
+
+    def test_boolean_ops_complexity(self):
+        """Boolean operators increase complexity."""
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.analyze import calculate_function_complexity
+
+        code = '''
+def check(a, b, c):
+    if a and b or c:
+        return True
+    return False
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        func_node = ast_dict["body"][0]
+
+        complexity = calculate_function_complexity(func_node)
+        # 1 base + 1 if + 2 (and, or)
+        assert complexity == 4, f"Expected complexity 4, got {complexity}"
+
+    def test_extract_complexity_metrics(self):
+        """extract_complexity_metrics should produce all metrics."""
+        from codebatch.tasks.parse import parse_python
+        from codebatch.tasks.analyze import extract_complexity_metrics
+
+        code = '''
+import os
+import sys
+
+class Calculator:
+    def add(self, a, b):
+        return a + b
+
+    def divide(self, a, b):
+        if b == 0:
+            raise ValueError("Cannot divide by zero")
+        return a / b
+
+def main():
+    calc = Calculator()
+    print(calc.add(1, 2))
+'''.strip()
+
+        ast_dict, _ = parse_python(code, "test.py")
+        metrics = extract_complexity_metrics(ast_dict, "test.py")
+
+        # Convert to dict for easy lookup
+        metrics_dict = {m["metric"]: m["value"] for m in metrics}
+
+        assert "complexity" in metrics_dict
+        assert "max_complexity" in metrics_dict
+        assert "function_count" in metrics_dict
+        assert "class_count" in metrics_dict
+        assert "import_count" in metrics_dict
+
+        assert metrics_dict["class_count"] == 1, f"Expected 1 class, got {metrics_dict['class_count']}"
+        assert metrics_dict["function_count"] == 3, f"Expected 3 functions (add, divide, main), got {metrics_dict['function_count']}"
+        assert metrics_dict["import_count"] == 2, f"Expected 2 imports, got {metrics_dict['import_count']}"
+        assert metrics_dict["max_complexity"] == 2, f"Expected max complexity 2 (divide has if), got {metrics_dict['max_complexity']}"
+
+    def test_analyze_executor_produces_complexity(self, tmp_path):
+        """analyze_executor should produce complexity metrics."""
+        from codebatch.store import init_store
+        from codebatch.snapshot import SnapshotBuilder
+        from codebatch.batch import BatchManager
+        from codebatch.runner import ShardRunner
+        from codebatch.common import object_shard_prefix
+        from codebatch.tasks.parse import parse_executor
+        from codebatch.tasks.analyze import analyze_executor
+
+        # Create test corpus
+        corpus = tmp_path / "corpus"
+        corpus.mkdir()
+
+        test_file = corpus / "test.py"
+        test_file.write_text('''
+def process(items):
+    for item in items:
+        if item > 0:
+            print(item)
+'''.strip())
+
+        # Initialize store
+        store = tmp_path / "store"
+        init_store(store)
+
+        builder = SnapshotBuilder(store)
+        snapshot_id = builder.build(corpus)
+
+        batch_mgr = BatchManager(store)
+        batch_id = batch_mgr.init_batch(snapshot_id, pipeline="full")
+
+        # Get shards
+        records = builder.load_file_index(snapshot_id)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
+
+        # Run parse first, then analyze
+        runner = ShardRunner(store)
+        for shard_id in shards_with_files:
+            runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+            runner.run_shard(batch_id, "02_analyze", shard_id, analyze_executor)
+
+        # Query analyze outputs
+        from codebatch.query import QueryEngine
+        engine = QueryEngine(store)
+        all_outputs = engine.query_outputs(batch_id, "02_analyze")
+
+        metrics = [o for o in all_outputs if o.get("kind") == "metric"]
+        metric_names = [m.get("metric") for m in metrics]
+
+        # Should have complexity metric
+        assert "complexity" in metric_names, f"complexity not found in {metric_names}"
+
+        # Find complexity value
+        complexity_metric = next(m for m in metrics if m.get("metric") == "complexity")
+        # 1 base + 1 for + 1 if = 3
+        assert complexity_metric["value"] == 3, f"Expected complexity 3, got {complexity_metric['value']}"
 
 
 class TestGateP8SelfHost:

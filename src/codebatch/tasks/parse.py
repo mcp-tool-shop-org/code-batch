@@ -209,6 +209,17 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
     if node_type == "UnaryOp" and hasattr(node, "operand") and node.operand:
         result["operand"] = _ast_node_to_dict(node.operand, depth + 1, max_depth)
 
+    # BoolOp (and/or expressions)
+    if node_type == "BoolOp":
+        if hasattr(node, "values") and node.values:
+            result["values"] = [
+                _ast_node_to_dict(v, depth + 1, max_depth)
+                for v in node.values
+            ]
+        # Also capture the operator type
+        if hasattr(node, "op"):
+            result["op"] = node.op.__class__.__name__
+
     # Return/Yield statements
     if node_type in ("Return", "Yield", "YieldFrom"):
         if hasattr(node, "value") and node.value:
@@ -234,6 +245,18 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
                 _ast_node_to_dict(v, depth + 1, max_depth)
                 for v in node.values
             ]
+
+    # If/While/For test condition
+    if node_type in ("If", "While", "IfExp"):
+        if hasattr(node, "test") and node.test:
+            result["test"] = _ast_node_to_dict(node.test, depth + 1, max_depth)
+
+    # For loop iter and target
+    if node_type in ("For", "AsyncFor"):
+        if hasattr(node, "iter") and node.iter:
+            result["iter"] = _ast_node_to_dict(node.iter, depth + 1, max_depth)
+        if hasattr(node, "target") and node.target:
+            result["target"] = _ast_node_to_dict(node.target, depth + 1, max_depth)
 
     # For body-containing nodes, include children
     if hasattr(node, "body") and isinstance(node.body, list):
