@@ -27,6 +27,9 @@ from codebatch.query import QueryEngine
 from codebatch.runner import ShardRunner
 from codebatch.snapshot import SnapshotBuilder
 from codebatch.tasks.parse import parse_executor
+from codebatch.tasks.analyze import analyze_executor
+from codebatch.tasks.symbols import symbols_executor
+from codebatch.tasks.lint import lint_executor
 
 
 # Allowed paths under store root (Phase 2 truth store policy)
@@ -71,12 +74,7 @@ def canonicalize_outputs(outputs: list[dict]) -> list[dict]:
 class TestGate1MultiTaskPipeline:
     """Gate 1: Multi-task pipeline end-to-end.
 
-    ⚙️ HARNESS - Perimeter infrastructure exists.
-
-    Currently tests parse pipeline (Phase 1).
-    Phase 2 will extend to: parse -> analyze -> symbols -> lint
-
-    TODO(Phase 2): When all tasks land, this gate must run the full chain.
+    ✅ ENFORCED - Full Phase 2 chain: parse -> analyze -> symbols -> lint
     """
 
     def test_parse_pipeline_completes(self, clean_store: Path, corpus_dir: Path):
@@ -108,32 +106,86 @@ class TestGate1MultiTaskPipeline:
         ast_outputs = [o for o in outputs if o["kind"] == "ast"]
         assert len(ast_outputs) > 0, "No AST outputs produced"
 
-    def test_deps_order_enforced(self, clean_store: Path, corpus_dir: Path):
-        """Task dependencies must be respected.
+    def test_full_pipeline_completes(self, clean_store: Path, corpus_dir: Path):
+        """Full Phase 2 pipeline: parse -> analyze -> symbols -> lint."""
+        # Setup
+        snapshot_builder = SnapshotBuilder(clean_store)
+        snapshot_id = snapshot_builder.build(corpus_dir)
 
-        This test will be extended in Phase 2 when deps are enforced.
-        Currently just verifies the plan structure.
-        """
+        batch_manager = BatchManager(clean_store)
+        batch_id = batch_manager.init_batch(snapshot_id, "full")
+
+        runner = ShardRunner(clean_store)
+
+        # Get shards with files
+        records = snapshot_builder.load_file_index(snapshot_id)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
+
+        # Run all 4 tasks for each shard
+        for shard_id in shards_with_files:
+            # Must run in dependency order
+            state = runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+            assert state["status"] == "done", f"Parse failed: {state.get('error')}"
+
+            state = runner.run_shard(batch_id, "02_analyze", shard_id, analyze_executor)
+            assert state["status"] == "done", f"Analyze failed: {state.get('error')}"
+
+            state = runner.run_shard(batch_id, "03_symbols", shard_id, symbols_executor)
+            assert state["status"] == "done", f"Symbols failed: {state.get('error')}"
+
+            state = runner.run_shard(batch_id, "04_lint", shard_id, lint_executor)
+            assert state["status"] == "done", f"Lint failed: {state.get('error')}"
+
+        # Verify each task has outputs
+        engine = QueryEngine(clean_store)
+
+        # 01_parse: AST outputs
+        parse_outputs = engine.query_outputs(batch_id, "01_parse")
+        ast_outputs = [o for o in parse_outputs if o["kind"] == "ast"]
+        assert len(ast_outputs) > 0, "No AST outputs from parse"
+
+        # 02_analyze: metric outputs
+        analyze_outputs = engine.query_outputs(batch_id, "02_analyze")
+        metric_outputs = [o for o in analyze_outputs if o["kind"] == "metric"]
+        assert len(metric_outputs) > 0, "No metric outputs from analyze"
+
+        # 03_symbols: symbol or edge outputs
+        symbols_outputs = engine.query_outputs(batch_id, "03_symbols")
+        symbol_or_edge = [o for o in symbols_outputs if o["kind"] in ("symbol", "edge")]
+        assert len(symbol_or_edge) > 0, "No symbol/edge outputs from symbols"
+
+        # 04_lint: diagnostic outputs (may be 0 if corpus is clean)
+        lint_outputs = engine.query_outputs(batch_id, "04_lint")
+        # Just verify it ran (diagnostics may be empty for clean files)
+        assert isinstance(lint_outputs, list)
+
+    def test_deps_order_enforced(self, clean_store: Path, corpus_dir: Path):
+        """Task dependencies must be respected - full pipeline plan."""
         # Setup
         snapshot_builder = SnapshotBuilder(clean_store)
         snapshot_id = snapshot_builder.build(corpus_dir)
 
         batch_manager = BatchManager(clean_store)
 
-        # Create batch with analyze pipeline (has deps)
-        batch_id = batch_manager.init_batch(snapshot_id, "analyze")
+        # Create batch with full pipeline (has deps)
+        batch_id = batch_manager.init_batch(snapshot_id, "full")
 
         # Load plan and verify deps structure
         plan = batch_manager.load_plan(batch_id)
         tasks = plan["tasks"]
 
-        # Find analyze task
-        analyze_task = next((t for t in tasks if t["task_id"] == "02_analyze"), None)
-        assert analyze_task is not None, "02_analyze task not in plan"
+        # Verify all tasks have deps structure
+        for task in tasks:
+            task_id = task["task_id"]
+            if task_id != "01_parse":
+                assert "depends_on" in task, f"{task_id} missing depends_on"
+                assert "01_parse" in task["depends_on"], f"{task_id} should depend on 01_parse"
 
-        # Verify it has deps on parse (Phase 2 will enforce this)
-        assert "depends_on" in analyze_task or "deps" in analyze_task or True, \
-            "Deps field expected (Phase 2 will enforce)"
+        # Verify symbols and lint exist
+        symbols_task = next((t for t in tasks if t["task_id"] == "03_symbols"), None)
+        lint_task = next((t for t in tasks if t["task_id"] == "04_lint"), None)
+        assert symbols_task is not None, "03_symbols task not in plan"
+        assert lint_task is not None, "04_lint task not in plan"
 
 
 class TestGate2LogIndependence:
