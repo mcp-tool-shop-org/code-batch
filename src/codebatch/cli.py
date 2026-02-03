@@ -358,6 +358,37 @@ def main(argv: list[str] = None) -> int:
     explain_parser.add_argument("--json", action="store_true", help="Output as JSON")
     explain_parser.set_defaults(func=cmd_explain)
 
+    # diff command - compare two batches
+    diff_parser = subparsers.add_parser("diff", help="Compare outputs between two batches")
+    diff_parser.add_argument("batch_a", help="First batch ID (before/baseline)")
+    diff_parser.add_argument("batch_b", help="Second batch ID (after/current)")
+    diff_parser.add_argument("--store", required=True, help="Store root directory")
+    diff_parser.add_argument("--kind", help="Filter by output kind")
+    diff_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    diff_parser.add_argument("--no-color", action="store_true", help="Disable colored output")
+    diff_parser.add_argument("--explain", action="store_true", help="Show data sources instead of data")
+    diff_parser.set_defaults(func=cmd_diff)
+
+    # regressions command - show diagnostics that worsened
+    regressions_parser = subparsers.add_parser("regressions", help="Show diagnostics that worsened between batches")
+    regressions_parser.add_argument("batch_a", help="First batch ID (before/baseline)")
+    regressions_parser.add_argument("batch_b", help="Second batch ID (after/current)")
+    regressions_parser.add_argument("--store", required=True, help="Store root directory")
+    regressions_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    regressions_parser.add_argument("--no-color", action="store_true", help="Disable colored output")
+    regressions_parser.add_argument("--explain", action="store_true", help="Show data sources instead of data")
+    regressions_parser.set_defaults(func=cmd_regressions)
+
+    # improvements command - show diagnostics that improved
+    improvements_parser = subparsers.add_parser("improvements", help="Show diagnostics that improved between batches")
+    improvements_parser.add_argument("batch_a", help="First batch ID (before/baseline)")
+    improvements_parser.add_argument("batch_b", help="Second batch ID (after/current)")
+    improvements_parser.add_argument("--store", required=True, help="Store root directory")
+    improvements_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    improvements_parser.add_argument("--no-color", action="store_true", help="Disable colored output")
+    improvements_parser.add_argument("--explain", action="store_true", help="Show data sources instead of data")
+    improvements_parser.set_defaults(func=cmd_improvements)
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -1623,6 +1654,199 @@ def cmd_explain(args: argparse.Namespace) -> int:
         print(render_json(info))
     else:
         print_explain(info)
+
+    return 0
+
+
+def cmd_diff(args: argparse.Namespace) -> int:
+    """Handle the diff command (Phase 6).
+
+    Compares outputs between two batches.
+    Read-only: does not modify the store.
+    """
+    from .ui import ColorMode, render_json, render_table, Column
+    from .ui.diff import diff_batches
+
+    # Handle --explain mode
+    if getattr(args, "explain", False):
+        info = get_explain_info("diff")
+        if args.json:
+            print(render_json(info))
+        else:
+            print_explain(info)
+        return 0
+
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    color_mode = ColorMode.NEVER if args.no_color else ColorMode.AUTO
+
+    try:
+        result = diff_batches(
+            store_root,
+            args.batch_a,
+            args.batch_b,
+            kind_filter=args.kind,
+        )
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(render_json(result.to_dict()))
+    else:
+        print(f"Diff: {args.batch_a} -> {args.batch_b}")
+        print()
+        print(f"  Added:   {len(result.added)}")
+        print(f"  Removed: {len(result.removed)}")
+        print(f"  Changed: {len(result.changed)}")
+        print()
+
+        if result.added:
+            print("--- ADDED ---")
+            columns = [
+                Column(name="kind", header="KIND", width=12),
+                Column(name="path", header="PATH"),
+            ]
+            print(render_table(result.added, columns, sort_key="path", color_mode=color_mode))
+            print()
+
+        if result.removed:
+            print("--- REMOVED ---")
+            columns = [
+                Column(name="kind", header="KIND", width=12),
+                Column(name="path", header="PATH"),
+            ]
+            print(render_table(result.removed, columns, sort_key="path", color_mode=color_mode))
+            print()
+
+        if result.changed:
+            print("--- CHANGED ---")
+            # Show changed items (flatten to show new values)
+            changed_rows = [new for old, new in result.changed]
+            columns = [
+                Column(name="kind", header="KIND", width=12),
+                Column(name="path", header="PATH"),
+            ]
+            print(render_table(changed_rows, columns, sort_key="path", color_mode=color_mode))
+            print()
+
+    return 0
+
+
+def cmd_regressions(args: argparse.Namespace) -> int:
+    """Handle the regressions command (Phase 6).
+
+    Shows diagnostics that worsened between batches.
+    Read-only: does not modify the store.
+    """
+    from .ui import ColorMode, render_json, render_table, Column
+    from .ui.diff import diff_diagnostics
+
+    # Handle --explain mode
+    if getattr(args, "explain", False):
+        info = get_explain_info("regressions")
+        if args.json:
+            print(render_json(info))
+        else:
+            print_explain(info)
+        return 0
+
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    color_mode = ColorMode.NEVER if args.no_color else ColorMode.AUTO
+
+    try:
+        delta = diff_diagnostics(store_root, args.batch_a, args.batch_b)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(render_json({
+            "regressions": delta.regressions,
+            "count": len(delta.regressions),
+        }))
+    else:
+        print(f"Regressions: {args.batch_a} -> {args.batch_b}")
+        print()
+
+        if not delta.regressions:
+            print("No regressions found.")
+        else:
+            print(f"Found {len(delta.regressions)} regressions:")
+            print()
+            columns = [
+                Column(name="severity", header="SEV", width=8),
+                Column(name="code", header="CODE", width=10),
+                Column(name="path", header="PATH"),
+                Column(name="line", header="LINE", width=6, align="right"),
+            ]
+            print(render_table(delta.regressions, columns, sort_key="path", color_mode=color_mode))
+
+    return 0
+
+
+def cmd_improvements(args: argparse.Namespace) -> int:
+    """Handle the improvements command (Phase 6).
+
+    Shows diagnostics that improved between batches.
+    Read-only: does not modify the store.
+    """
+    from .ui import ColorMode, render_json, render_table, Column
+    from .ui.diff import diff_diagnostics
+
+    # Handle --explain mode
+    if getattr(args, "explain", False):
+        info = get_explain_info("improvements")
+        if args.json:
+            print(render_json(info))
+        else:
+            print_explain(info)
+        return 0
+
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    color_mode = ColorMode.NEVER if args.no_color else ColorMode.AUTO
+
+    try:
+        delta = diff_diagnostics(store_root, args.batch_a, args.batch_b)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(render_json({
+            "improvements": delta.improvements,
+            "count": len(delta.improvements),
+        }))
+    else:
+        print(f"Improvements: {args.batch_a} -> {args.batch_b}")
+        print()
+
+        if not delta.improvements:
+            print("No improvements found.")
+        else:
+            print(f"Found {len(delta.improvements)} improvements:")
+            print()
+            columns = [
+                Column(name="severity", header="SEV", width=8),
+                Column(name="code", header="CODE", width=10),
+                Column(name="path", header="PATH"),
+                Column(name="line", header="LINE", width=6, align="right"),
+            ]
+            print(render_table(delta.improvements, columns, sort_key="path", color_mode=color_mode))
 
     return 0
 
