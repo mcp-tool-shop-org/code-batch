@@ -339,6 +339,18 @@ def main(argv: list[str] = None) -> int:
     top_parser.add_argument("--json", action="store_true", help="Output as JSON")
     top_parser.set_defaults(func=cmd_top)
 
+    # ========== Phase 6 Commands ==========
+
+    # inspect command - file drilldown
+    inspect_parser = subparsers.add_parser("inspect", help="Show all outputs for a file")
+    inspect_parser.add_argument("path", help="File path to inspect")
+    inspect_parser.add_argument("--batch", required=True, help="Batch ID")
+    inspect_parser.add_argument("--store", required=True, help="Store root directory")
+    inspect_parser.add_argument("--kinds", help="Filter by output kinds (comma-separated)")
+    inspect_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    inspect_parser.add_argument("--no-color", action="store_true", help="Disable colored output")
+    inspect_parser.set_defaults(func=cmd_inspect)
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -1308,6 +1320,136 @@ def cmd_top(args: argparse.Namespace) -> int:
         print("-" * 45)
         for key, count in sorted_items:
             print(f"{key:<30} {count:<10}")
+
+    return 0
+
+
+# ========== Phase 6 Command Handlers ==========
+
+
+def cmd_inspect(args: argparse.Namespace) -> int:
+    """Handle the inspect command (Phase 6).
+
+    Shows all outputs for a specific file path, grouped by kind/task.
+    Read-only: does not modify the store.
+    """
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    # Determine color mode
+    from .ui import ColorMode, render_table, render_json, Column
+    color_mode = ColorMode.NEVER if args.no_color else ColorMode.AUTO
+
+    engine = QueryEngine(store_root)
+    manager = BatchManager(store_root)
+
+    try:
+        plan = manager.load_plan(args.batch)
+    except FileNotFoundError:
+        print(f"Error: Batch not found: {args.batch}", file=sys.stderr)
+        return 1
+
+    # Normalize path (strip leading ./ or /)
+    target_path = args.path.lstrip("./").lstrip("/")
+
+    # Parse kinds filter
+    kinds_filter = None
+    if args.kinds:
+        kinds_filter = set(k.strip() for k in args.kinds.split(","))
+
+    # Collect all outputs for this path across all tasks
+    all_outputs = []
+    task_ids = [t["task_id"] for t in plan["tasks"]]
+
+    for task_id in task_ids:
+        outputs = engine.query_outputs(args.batch, task_id, path_pattern=target_path)
+        for output in outputs:
+            # Exact path match (not substring)
+            output_path = output.get("path", "").lstrip("./").lstrip("/")
+            if output_path != target_path:
+                continue
+
+            # Apply kinds filter
+            if kinds_filter and output.get("kind") not in kinds_filter:
+                continue
+
+            output["task_id"] = task_id
+            all_outputs.append(output)
+
+    if not all_outputs:
+        print(f"No outputs found for: {args.path}")
+        return 0
+
+    # Sort outputs deterministically by (task_id, kind, then stable key)
+    def sort_key(o):
+        return (
+            o.get("task_id", ""),
+            o.get("kind", ""),
+            o.get("severity", ""),
+            o.get("code", ""),
+            o.get("line", 0),
+        )
+    all_outputs.sort(key=sort_key)
+
+    if args.json:
+        # JSON output with stable key ordering
+        print(render_json(all_outputs))
+    else:
+        # Group by kind for human display
+        from collections import defaultdict
+        by_kind = defaultdict(list)
+        for output in all_outputs:
+            by_kind[output.get("kind", "unknown")].append(output)
+
+        print(f"Inspect: {args.path}")
+        print(f"Batch: {args.batch}")
+        print(f"Total outputs: {len(all_outputs)}")
+        print()
+
+        for kind in sorted(by_kind.keys()):
+            outputs = by_kind[kind]
+            print(f"--- {kind.upper()} ({len(outputs)}) ---")
+            print()
+
+            if kind == "diagnostic":
+                # Show diagnostics with severity, code, message
+                columns = [
+                    Column(name="task_id", header="TASK", width=12),
+                    Column(name="severity", header="SEV", width=8),
+                    Column(name="code", header="CODE", width=10),
+                    Column(name="line", header="LINE", width=6, align="right"),
+                    Column(name="message", header="MESSAGE"),
+                ]
+                print(render_table(outputs, columns, sort_key=sort_key, color_mode=color_mode))
+            elif kind == "metric":
+                # Show metrics with name, value
+                columns = [
+                    Column(name="task_id", header="TASK", width=12),
+                    Column(name="name", header="NAME", width=20),
+                    Column(name="value", header="VALUE", width=15, align="right"),
+                ]
+                print(render_table(outputs, columns, sort_key=sort_key, color_mode=color_mode))
+            elif kind == "symbol":
+                # Show symbols with name, type
+                columns = [
+                    Column(name="task_id", header="TASK", width=12),
+                    Column(name="name", header="NAME", width=30),
+                    Column(name="type", header="TYPE", width=15),
+                    Column(name="line", header="LINE", width=6, align="right"),
+                ]
+                print(render_table(outputs, columns, sort_key=sort_key, color_mode=color_mode))
+            else:
+                # Generic output display
+                columns = [
+                    Column(name="task_id", header="TASK", width=12),
+                    Column(name="kind", header="KIND", width=15),
+                ]
+                print(render_table(outputs, columns, sort_key=sort_key, color_mode=color_mode))
+
+            print()
 
     return 0
 
