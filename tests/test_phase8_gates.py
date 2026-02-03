@@ -1326,12 +1326,250 @@ def process(items):
 
 
 class TestGateP8SelfHost:
-    """P8-SELF-HOST: CodeBatch must analyze its own source meaningfully.
+    """P8-SELF-HOST: CodeBatch must analyze its own source meaningfully."""
 
-    These tests will be implemented in Commit 9.
-    """
-
-    @pytest.mark.skip(reason="Commit 9 - self-host tests not yet implemented")
-    def test_self_analysis_produces_symbols(self):
+    def test_self_analysis_produces_symbols(self, tmp_path):
         """Analyzing codebatch source must produce real symbols."""
-        pass
+        import re
+        from pathlib import Path
+        from codebatch.store import init_store
+        from codebatch.snapshot import SnapshotBuilder
+        from codebatch.batch import BatchManager
+        from codebatch.runner import ShardRunner
+        from codebatch.query import QueryEngine
+        from codebatch.common import object_shard_prefix
+        from codebatch.tasks.parse import parse_executor
+        from codebatch.tasks.symbols import symbols_executor
+
+        # Find the codebatch source directory
+        src_dir = Path(__file__).parent.parent / "src" / "codebatch"
+        assert src_dir.exists(), f"Source directory not found: {src_dir}"
+
+        # Initialize store
+        store = tmp_path / "store"
+        init_store(store)
+
+        # Create snapshot of codebatch source
+        builder = SnapshotBuilder(store)
+        snapshot_id = builder.build(src_dir)
+
+        batch_mgr = BatchManager(store)
+        batch_id = batch_mgr.init_batch(snapshot_id, pipeline="full")
+
+        # Get shards with files
+        records = builder.load_file_index(snapshot_id)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
+
+        # Run parse and symbols tasks
+        runner = ShardRunner(store)
+        for shard_id in shards_with_files:
+            runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+            runner.run_shard(batch_id, "03_symbols", shard_id, symbols_executor)
+
+        # Query symbols
+        engine = QueryEngine(store)
+        all_outputs = engine.query_outputs(batch_id, "03_symbols")
+
+        symbols = [o for o in all_outputs if o.get("kind") == "symbol"]
+        symbol_names = [s.get("name") for s in symbols]
+
+        # Must have at least 50 symbols (functions, classes, variables)
+        assert len(symbols) >= 50, f"Expected at least 50 symbols, got {len(symbols)}"
+
+        # Must include real function names from codebatch source
+        # These are known functions that should exist
+        expected_functions = [
+            "init_store",  # store.py
+            "parse_python",  # tasks/parse.py
+            "symbols_executor",  # tasks/symbols.py
+        ]
+
+        for func_name in expected_functions:
+            assert func_name in symbol_names, f"Expected function '{func_name}' not found in symbols"
+
+        # Must NOT have placeholder names
+        placeholder_pattern = re.compile(r'^(function|class|variable|module)_\d+$')
+        placeholders = [name for name in symbol_names if placeholder_pattern.match(str(name))]
+        assert len(placeholders) == 0, f"Found placeholder symbols: {placeholders[:10]}"
+
+    def test_self_analysis_produces_imports(self, tmp_path):
+        """Analyzing codebatch source must produce import edges."""
+        from pathlib import Path
+        from codebatch.store import init_store
+        from codebatch.snapshot import SnapshotBuilder
+        from codebatch.batch import BatchManager
+        from codebatch.runner import ShardRunner
+        from codebatch.query import QueryEngine
+        from codebatch.common import object_shard_prefix
+        from codebatch.tasks.parse import parse_executor
+        from codebatch.tasks.symbols import symbols_executor
+
+        # Find the codebatch source directory
+        src_dir = Path(__file__).parent.parent / "src" / "codebatch"
+
+        # Initialize store
+        store = tmp_path / "store"
+        init_store(store)
+
+        # Create snapshot
+        builder = SnapshotBuilder(store)
+        snapshot_id = builder.build(src_dir)
+
+        batch_mgr = BatchManager(store)
+        batch_id = batch_mgr.init_batch(snapshot_id, pipeline="full")
+
+        # Get shards
+        records = builder.load_file_index(snapshot_id)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
+
+        # Run parse and symbols
+        runner = ShardRunner(store)
+        for shard_id in shards_with_files:
+            runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+            runner.run_shard(batch_id, "03_symbols", shard_id, symbols_executor)
+
+        # Query outputs
+        engine = QueryEngine(store)
+        all_outputs = engine.query_outputs(batch_id, "03_symbols")
+
+        edges = [o for o in all_outputs if o.get("kind") == "edge"]
+        import_edges = [e for e in edges if e.get("edge_type") == "imports"]
+        import_targets = [e.get("target") for e in import_edges]
+
+        # Must have import edges
+        assert len(import_edges) >= 10, f"Expected at least 10 import edges, got {len(import_edges)}"
+
+        # Must include real module imports
+        expected_imports = ["json", "typing"]
+        for imp in expected_imports:
+            # Check if any import target starts with or equals the expected
+            found = any(t == imp or (t and t.startswith(f"{imp}.")) for t in import_targets)
+            assert found, f"Expected import '{imp}' not found in imports"
+
+    def test_self_analysis_produces_metrics(self, tmp_path):
+        """Analyzing codebatch source must produce real metrics."""
+        from pathlib import Path
+        from codebatch.store import init_store
+        from codebatch.snapshot import SnapshotBuilder
+        from codebatch.batch import BatchManager
+        from codebatch.runner import ShardRunner
+        from codebatch.query import QueryEngine
+        from codebatch.common import object_shard_prefix
+        from codebatch.tasks.parse import parse_executor
+        from codebatch.tasks.analyze import analyze_executor
+
+        # Find the codebatch source directory
+        src_dir = Path(__file__).parent.parent / "src" / "codebatch"
+
+        # Initialize store
+        store = tmp_path / "store"
+        init_store(store)
+
+        # Create snapshot
+        builder = SnapshotBuilder(store)
+        snapshot_id = builder.build(src_dir)
+
+        batch_mgr = BatchManager(store)
+        batch_id = batch_mgr.init_batch(snapshot_id, pipeline="full")
+
+        # Get shards
+        records = builder.load_file_index(snapshot_id)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
+
+        # Run parse and analyze
+        runner = ShardRunner(store)
+        for shard_id in shards_with_files:
+            runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+            runner.run_shard(batch_id, "02_analyze", shard_id, analyze_executor)
+
+        # Query outputs
+        engine = QueryEngine(store)
+        all_outputs = engine.query_outputs(batch_id, "02_analyze")
+
+        metrics = [o for o in all_outputs if o.get("kind") == "metric"]
+        metric_types = set(m.get("metric") for m in metrics)
+
+        # Must have complexity metrics
+        assert "complexity" in metric_types, f"complexity not in {metric_types}"
+        assert "function_count" in metric_types, f"function_count not in {metric_types}"
+        assert "class_count" in metric_types, f"class_count not in {metric_types}"
+
+        # Get total complexity
+        complexity_metrics = [m for m in metrics if m.get("metric") == "complexity"]
+        total_complexity = sum(m.get("value", 0) for m in complexity_metrics)
+
+        # Codebatch source should have non-trivial complexity
+        assert total_complexity >= 20, f"Expected complexity >= 20, got {total_complexity}"
+
+    def test_full_pipeline_end_to_end(self, tmp_path):
+        """Full pipeline must complete successfully on codebatch source."""
+        from pathlib import Path
+        from codebatch.store import init_store
+        from codebatch.snapshot import SnapshotBuilder
+        from codebatch.batch import BatchManager
+        from codebatch.runner import ShardRunner
+        from codebatch.query import QueryEngine
+        from codebatch.common import object_shard_prefix
+        from codebatch.tasks.parse import parse_executor
+        from codebatch.tasks.analyze import analyze_executor
+        from codebatch.tasks.symbols import symbols_executor
+        from codebatch.tasks.lint import lint_executor
+
+        # Find the codebatch source directory
+        src_dir = Path(__file__).parent.parent / "src" / "codebatch"
+
+        # Initialize store
+        store = tmp_path / "store"
+        init_store(store)
+
+        # Create snapshot
+        builder = SnapshotBuilder(store)
+        snapshot_id = builder.build(src_dir)
+
+        batch_mgr = BatchManager(store)
+        batch_id = batch_mgr.init_batch(snapshot_id, pipeline="full")
+
+        # Get shards
+        records = builder.load_file_index(snapshot_id)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
+
+        # Run all tasks in order
+        runner = ShardRunner(store)
+        for shard_id in shards_with_files:
+            runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+            runner.run_shard(batch_id, "02_analyze", shard_id, analyze_executor)
+            runner.run_shard(batch_id, "03_symbols", shard_id, symbols_executor)
+            runner.run_shard(batch_id, "04_lint", shard_id, lint_executor)
+
+        # Query all task outputs
+        engine = QueryEngine(store)
+
+        parse_outputs = engine.query_outputs(batch_id, "01_parse")
+        analyze_outputs = engine.query_outputs(batch_id, "02_analyze")
+        symbol_outputs = engine.query_outputs(batch_id, "03_symbols")
+        lint_outputs = engine.query_outputs(batch_id, "04_lint")
+
+        # All tasks should produce outputs
+        assert len(parse_outputs) > 0, "No parse outputs"
+        assert len(analyze_outputs) > 0, "No analyze outputs"
+        assert len(symbol_outputs) > 0, "No symbol outputs"
+        assert len(lint_outputs) > 0, "No lint outputs"
+
+        # Count different output types
+        ast_count = sum(1 for o in parse_outputs if o.get("kind") == "ast")
+        symbol_count = sum(1 for o in symbol_outputs if o.get("kind") == "symbol")
+        metric_count = sum(1 for o in analyze_outputs if o.get("kind") == "metric")
+        diagnostic_count = sum(1 for o in lint_outputs if o.get("kind") == "diagnostic")
+
+        # Verify meaningful output counts
+        assert ast_count > 0, "No AST outputs"
+        assert symbol_count > 0, "No symbol outputs"
+        assert metric_count > 0, "No metric outputs"
+        # Lint diagnostics may or may not exist depending on code quality
+        # Just verify we got the outputs
+
+        print(f"Self-host analysis complete:")
+        print(f"  AST outputs: {ast_count}")
+        print(f"  Symbol outputs: {symbol_count}")
+        print(f"  Metric outputs: {metric_count}")
+        print(f"  Diagnostic outputs: {diagnostic_count}")
