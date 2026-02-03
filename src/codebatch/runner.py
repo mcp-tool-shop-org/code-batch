@@ -220,8 +220,16 @@ class ShardRunner:
             # Executors that need random access should materialize with list()
             shard_files = _CountingIterator(self._iter_shard_files(snapshot_id, shard_id))
 
+            # Enrich config with execution context for tasks that need it
+            # (e.g., symbols task needs batch_id/shard_id for iter_prior_outputs)
+            exec_config = dict(task["config"])
+            exec_config["_batch_id"] = batch_id
+            exec_config["_task_id"] = task_id
+            exec_config["_shard_id"] = shard_id
+            exec_config["_snapshot_id"] = snapshot_id
+
             # Execute - output_records may be iterator or list
-            output_records = executor(task["config"], shard_files, self)
+            output_records = executor(exec_config, shard_files, self)
 
             # Write outputs atomically, counting as we go
             outputs_path = shard_dir / "outputs.index.jsonl"
