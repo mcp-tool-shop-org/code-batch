@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .batch import BatchManager, PIPELINES
+from .runner import ShardRunner
 from .snapshot import SnapshotBuilder
 
 
@@ -160,6 +161,15 @@ def main(argv: list[str] = None) -> int:
     batch_show_parser.add_argument("--json", action="store_true", help="Output as JSON")
     batch_show_parser.set_defaults(func=cmd_batch_show)
 
+    # run-shard command
+    run_shard_parser = subparsers.add_parser("run-shard", help="Run a shard")
+    run_shard_parser.add_argument("--batch", required=True, help="Batch ID")
+    run_shard_parser.add_argument("--task", required=True, help="Task ID")
+    run_shard_parser.add_argument("--shard", required=True, help="Shard ID (e.g., 'ab')")
+    run_shard_parser.add_argument("--store", required=True, help="Store root directory")
+    run_shard_parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    run_shard_parser.set_defaults(func=cmd_run_shard)
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -257,6 +267,51 @@ def cmd_batch_show(args: argparse.Namespace) -> int:
             print(f"  {task['task_id']}: {task['type']} [{task['status']}]")
 
     return 0
+
+
+def cmd_run_shard(args: argparse.Namespace) -> int:
+    """Handle the run-shard command."""
+    store_root = Path(args.store)
+    batch_id = args.batch
+    task_id = args.task
+    shard_id = args.shard
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    runner = ShardRunner(store_root)
+
+    # Check current state
+    try:
+        state = runner._load_state(batch_id, task_id, shard_id)
+    except FileNotFoundError:
+        print(f"Error: Shard not found: {batch_id}/{task_id}/{shard_id}", file=sys.stderr)
+        return 1
+
+    if state["status"] == "done":
+        print(f"Shard {shard_id} already done, skipping.")
+        return 0
+
+    # Import the task executor
+    from .tasks import get_executor
+
+    try:
+        executor = get_executor(task_id)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    print(f"Running shard {shard_id} for task {task_id}...")
+
+    final_state = runner.run_shard(batch_id, task_id, shard_id, executor)
+
+    if final_state["status"] == "done":
+        print(f"Shard completed: {final_state['stats']['files_processed']} files, {final_state['stats']['outputs_written']} outputs")
+        return 0
+    else:
+        print(f"Shard failed: {final_state.get('error', {}).get('message', 'Unknown error')}")
+        return 1
 
 
 if __name__ == "__main__":
