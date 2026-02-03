@@ -22,19 +22,43 @@ from .format import (
     render_json,
     render_jsonl,
     ColorMode,
+    Column,
+    colorize,
+    format_count,
+    format_path,
+    format_severity,
+    strip_ansi,
+    verify_deterministic_table,
+    verify_deterministic_json,
+    verify_deterministic_jsonl,
 )
 from .pager import (
     paginate,
     should_paginate,
+    paginate_lines,
+    format_pagination_info,
 )
 
 __all__ = [
-    # Format
+    # Format - core rendering
     "render_table",
     "render_json",
     "render_jsonl",
     "ColorMode",
+    "Column",
+    # Format - helpers
+    "colorize",
+    "format_count",
+    "format_path",
+    "format_severity",
+    "strip_ansi",
+    # Format - contract verification
+    "verify_deterministic_table",
+    "verify_deterministic_json",
+    "verify_deterministic_jsonl",
     # Pager
     "paginate",
     "should_paginate",
+    "paginate_lines",
+    "format_pagination_info",
 ]

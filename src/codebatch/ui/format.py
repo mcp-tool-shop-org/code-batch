@@ -8,6 +8,26 @@ Key design principles:
 - Optional color: all color can be disabled with --no-color
 - Non-TTY safe: works when stdout is redirected
 - ASCII safe: no Unicode characters that might fail on Windows
+
+Rendering Contracts:
+-------------------
+These contracts guarantee deterministic, reproducible output:
+
+1. render_table(rows, columns, *, sort_key, ...)
+   - Contract: Given identical rows and sort_key, output is byte-identical
+   - Ordering: Rows sorted by sort_key (required for determinism)
+   - Colors: Stripped in ColorMode.NEVER
+   - Widths: Calculated from content, capped at 60 chars
+
+2. render_json(obj, *, sort_keys=True, ...)
+   - Contract: Given identical obj and sort_keys=True, output is byte-identical
+   - Ordering: Dictionary keys sorted alphabetically
+   - Encoding: UTF-8 with ensure_ascii=False
+
+3. render_jsonl(records, *, sort_key, sort_dict_keys=True, ...)
+   - Contract: Given identical records and sort_key, output is byte-identical
+   - Ordering: Records sorted by sort_key; keys within records sorted
+   - Format: One JSON object per line, no trailing newline
 """
 
 import json
@@ -329,3 +349,94 @@ def format_severity(
         return colorize(severity, "dim", color_mode)
     else:
         return severity
+
+
+# --- Rendering Contract Verification ---
+
+
+def verify_deterministic_table(
+    rows: Sequence[dict[str, Any]],
+    columns: Sequence[Column | str],
+    sort_key: str,
+) -> bool:
+    """Verify that table rendering is deterministic.
+
+    Renders the table twice and compares output.
+
+    Args:
+        rows: Rows to render.
+        columns: Column definitions.
+        sort_key: Sort key (required for determinism).
+
+    Returns:
+        True if outputs are identical.
+
+    Raises:
+        AssertionError: If outputs differ.
+    """
+    output1 = render_table(
+        rows, columns, sort_key=sort_key, color_mode=ColorMode.NEVER
+    )
+    output2 = render_table(
+        rows, columns, sort_key=sort_key, color_mode=ColorMode.NEVER
+    )
+    assert output1 == output2, "Table rendering is not deterministic"
+    return True
+
+
+def verify_deterministic_json(obj: Any) -> bool:
+    """Verify that JSON rendering is deterministic.
+
+    Renders the object twice and compares output.
+
+    Args:
+        obj: Object to serialize.
+
+    Returns:
+        True if outputs are identical.
+
+    Raises:
+        AssertionError: If outputs differ.
+    """
+    output1 = render_json(obj, sort_keys=True)
+    output2 = render_json(obj, sort_keys=True)
+    assert output1 == output2, "JSON rendering is not deterministic"
+    return True
+
+
+def verify_deterministic_jsonl(
+    records: Sequence[dict[str, Any]],
+    sort_key: str,
+) -> bool:
+    """Verify that JSONL rendering is deterministic.
+
+    Renders the records twice and compares output.
+
+    Args:
+        records: Records to render.
+        sort_key: Sort key for records.
+
+    Returns:
+        True if outputs are identical.
+
+    Raises:
+        AssertionError: If outputs differ.
+    """
+    output1 = render_jsonl(records, sort_key=sort_key)
+    output2 = render_jsonl(records, sort_key=sort_key)
+    assert output1 == output2, "JSONL rendering is not deterministic"
+    return True
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from text.
+
+    Args:
+        text: Text potentially containing ANSI codes.
+
+    Returns:
+        Text with ANSI codes removed.
+    """
+    import re
+    ansi_pattern = re.compile(r'\x1b\[[0-9;]*m')
+    return ansi_pattern.sub('', text)
