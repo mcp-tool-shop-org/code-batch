@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mcp-tool-shop-org/code-batch/schemas/task.schema.json",
+  "title": "Task",
+  "description": "A deterministic transformation over snapshot inputs or prior task outputs",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "task_id", "batch_id", "type", "sharding"],
+  "properties": {
+    "schema_name": {
+      "const": "codebatch.task"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "batch_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "type": {
+      "type": "string",
+      "description": "Task type identifier"
+    },
+    "sharding": {
+      "type": "object",
+      "required": ["strategy", "shard_count"],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["hash_prefix", "round_robin", "single"],
+          "description": "How files are distributed to shards"
+        },
+        "shard_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "shard_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{2}$"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "snapshot": {
+          "type": "boolean",
+          "default": true
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Task IDs whose outputs are inputs to this task"
+        }
+      },
+      "additionalProperties": true
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Resolved configuration parameters"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "completed", "failed"],
+      "default": "pending"
+    }
+  },
+  "additionalProperties": true
+}

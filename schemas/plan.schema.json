@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mcp-tool-shop-org/code-batch/schemas/plan.schema.json",
+  "title": "Plan",
+  "description": "Execution plan for a batch defining task sequence",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "batch_id", "tasks"],
+  "properties": {
+    "schema_name": {
+      "const": "codebatch.plan"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "batch_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["task_id", "type"],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]+$"
+          },
+          "type": {
+            "type": "string",
+            "description": "Task type (e.g., 'parse', 'analyze')"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Task IDs this task depends on"
+          },
+          "config": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

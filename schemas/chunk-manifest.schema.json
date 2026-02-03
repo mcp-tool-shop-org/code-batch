@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mcp-tool-shop-org/code-batch/schemas/chunk-manifest.schema.json",
+  "title": "ChunkManifest",
+  "description": "Manifest object for large outputs that have been chunked",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "kind", "format", "chunks", "total_bytes"],
+  "properties": {
+    "schema_name": {
+      "const": "codebatch.chunk_manifest"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Output kind (e.g., 'ast', 'artifact')"
+    },
+    "format": {
+      "type": "string",
+      "description": "Content format (e.g., 'json', 'msgpack')"
+    },
+    "chunks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["object", "size", "index"],
+        "properties": {
+          "object": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "SHA-256 hash of chunk content"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Chunk size in bytes"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Zero-based chunk index"
+          }
+        },
+        "additionalProperties": true
+      },
+      "minItems": 1
+    },
+    "total_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total size across all chunks"
+    },
+    "chunk_size": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Target chunk size used for splitting"
+    }
+  },
+  "additionalProperties": true
+}

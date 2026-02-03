@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mcp-tool-shop-org/code-batch/schemas/batch.schema.json",
+  "title": "Batch",
+  "description": "One execution attempt over a snapshot",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "batch_id", "snapshot_id", "created_at", "pipeline"],
+  "properties": {
+    "schema_name": {
+      "const": "codebatch.batch"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "batch_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pipeline": {
+      "type": "string",
+      "description": "Pipeline identifier (e.g., 'parse', 'analyze')"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "completed", "failed", "cancelled"],
+      "default": "pending"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
