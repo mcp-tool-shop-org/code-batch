@@ -36,67 +36,170 @@ def corpus_dir() -> Path:
 
 
 class TestExtractPythonSymbols:
-    """Unit tests for Python symbol extraction."""
+    """Unit tests for Python symbol extraction.
+
+    Phase 8: Updated to use full-fidelity AST with real names.
+    """
 
     def test_extracts_function(self):
-        """Extracts function definitions."""
+        """Extracts function definitions with real names."""
         ast_data = {
             "type": "Module",
-            "ast_mode": "summary",
+            "ast_mode": "full",
             "body": [
-                {"type": "FunctionDef", "lineno": 5, "col_offset": 0},
+                {
+                    "type": "FunctionDef",
+                    "name": "calculate_total",
+                    "lineno": 5,
+                    "col_offset": 0,
+                    "args": {"args": []},
+                    "body": [],
+                },
             ],
         }
         symbols, edges = extract_python_symbols(ast_data, "test.py")
 
         assert len(symbols) == 1
         assert symbols[0]["symbol_type"] == "function"
+        assert symbols[0]["name"] == "calculate_total"
         assert symbols[0]["line"] == 5
 
     def test_extracts_class(self):
-        """Extracts class definitions."""
+        """Extracts class definitions with real names."""
         ast_data = {
             "type": "Module",
-            "ast_mode": "summary",
+            "ast_mode": "full",
             "body": [
-                {"type": "ClassDef", "lineno": 10, "col_offset": 0},
+                {
+                    "type": "ClassDef",
+                    "name": "ShoppingCart",
+                    "lineno": 10,
+                    "col_offset": 0,
+                    "bases": [],
+                    "body": [],
+                },
             ],
         }
         symbols, edges = extract_python_symbols(ast_data, "test.py")
 
         assert len(symbols) == 1
         assert symbols[0]["symbol_type"] == "class"
+        assert symbols[0]["name"] == "ShoppingCart"
         assert symbols[0]["line"] == 10
 
     def test_extracts_import_edges(self):
-        """Extracts import edges."""
+        """Extracts import edges with real module names."""
         ast_data = {
             "type": "Module",
-            "ast_mode": "summary",
+            "ast_mode": "full",
             "body": [
-                {"type": "Import", "lineno": 1, "col_offset": 0},
-                {"type": "ImportFrom", "lineno": 2, "col_offset": 0},
+                {
+                    "type": "Import",
+                    "lineno": 1,
+                    "col_offset": 0,
+                    "names": [{"name": "os", "asname": None}],
+                },
+                {
+                    "type": "ImportFrom",
+                    "lineno": 2,
+                    "col_offset": 0,
+                    "module": "pathlib",
+                    "names": [{"name": "Path", "asname": None}],
+                },
             ],
         }
         symbols, edges = extract_python_symbols(ast_data, "test.py")
 
         assert len(edges) == 2
         assert edges[0]["edge_type"] == "imports"
+        assert edges[0]["target"] == "os"
         assert edges[1]["edge_type"] == "imports"
+        assert edges[1]["target"] == "pathlib.Path"
 
     def test_extracts_variable(self):
-        """Extracts variable assignments."""
+        """Extracts variable assignments with real names."""
         ast_data = {
             "type": "Module",
-            "ast_mode": "summary",
+            "ast_mode": "full",
             "body": [
-                {"type": "Assign", "lineno": 3, "col_offset": 0},
+                {
+                    "type": "Assign",
+                    "lineno": 3,
+                    "col_offset": 0,
+                    "targets": [{"type": "Name", "id": "total"}],
+                },
             ],
         }
         symbols, edges = extract_python_symbols(ast_data, "test.py")
 
         assert len(symbols) == 1
         assert symbols[0]["symbol_type"] == "variable"
+        assert symbols[0]["name"] == "total"
+
+    def test_extracts_nested_class_methods(self):
+        """Extracts methods inside classes with proper scope."""
+        ast_data = {
+            "type": "Module",
+            "ast_mode": "full",
+            "body": [
+                {
+                    "type": "ClassDef",
+                    "name": "Cart",
+                    "lineno": 1,
+                    "col_offset": 0,
+                    "bases": [],
+                    "body": [
+                        {
+                            "type": "FunctionDef",
+                            "name": "add_item",
+                            "lineno": 2,
+                            "col_offset": 4,
+                            "args": {"args": [{"arg": "self"}, {"arg": "item"}]},
+                            "body": [],
+                        },
+                    ],
+                },
+            ],
+        }
+        symbols, edges = extract_python_symbols(ast_data, "test.py")
+
+        # Should have class + method + parameter
+        class_symbols = [s for s in symbols if s["symbol_type"] == "class"]
+        method_symbols = [s for s in symbols if s["symbol_type"] == "function"]
+        param_symbols = [s for s in symbols if s["symbol_type"] == "parameter"]
+
+        assert len(class_symbols) == 1
+        assert class_symbols[0]["name"] == "Cart"
+
+        assert len(method_symbols) == 1
+        assert method_symbols[0]["name"] == "add_item"
+        assert method_symbols[0]["scope"] == "Cart"
+
+        # 'item' parameter (self is excluded)
+        assert len(param_symbols) == 1
+        assert param_symbols[0]["name"] == "item"
+
+    def test_extracts_inheritance_edges(self):
+        """Extracts inheritance relationships as edges."""
+        ast_data = {
+            "type": "Module",
+            "ast_mode": "full",
+            "body": [
+                {
+                    "type": "ClassDef",
+                    "name": "MyList",
+                    "lineno": 1,
+                    "col_offset": 0,
+                    "bases": [{"type": "Name", "id": "list"}],
+                    "body": [],
+                },
+            ],
+        }
+        symbols, edges = extract_python_symbols(ast_data, "test.py")
+
+        inherit_edges = [e for e in edges if e["edge_type"] == "inherits"]
+        assert len(inherit_edges) == 1
+        assert inherit_edges[0]["target"] == "list"
 
 
 class TestExtractJsSymbols:

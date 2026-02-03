@@ -252,27 +252,153 @@ def helper():
 
 
 class TestGateP8Symbols:
-    """P8-SYMBOLS: Symbol extraction must produce real identifiers.
+    """P8-SYMBOLS: Symbol extraction must produce real identifiers."""
 
-    These tests will be fully implemented in Commit 3.
-    For now, they serve as placeholders that will fail until
-    the symbols task is updated.
-    """
-
-    @pytest.mark.skip(reason="Commit 3 - symbols task not yet updated")
     def test_function_symbols_have_real_names(self):
         """Symbol extraction must not use line number placeholders."""
-        pass
+        from codebatch.tasks.symbols import extract_python_symbols
 
-    @pytest.mark.skip(reason="Commit 3 - symbols task not yet updated")
+        code = '''
+def calculate_total(items):
+    pass
+
+def process_order(order_id):
+    pass
+'''
+        ast_dict, _ = parse_python(code.strip(), "test.py")
+        symbols, edges = extract_python_symbols(ast_dict, "test.py")
+
+        func_symbols = [s for s in symbols if s["symbol_type"] == "function"]
+        func_names = [s["name"] for s in func_symbols]
+
+        # Must have real names, not placeholders
+        assert "calculate_total" in func_names
+        assert "process_order" in func_names
+
+        # Must NOT have placeholder names
+        for name in func_names:
+            assert not name.startswith("function_"), f"Placeholder name found: {name}"
+
     def test_class_symbols_have_real_names(self):
         """Class symbols must have actual class names."""
-        pass
+        from codebatch.tasks.symbols import extract_python_symbols
 
-    @pytest.mark.skip(reason="Commit 3 - symbols task not yet updated")
+        code = '''
+class ShoppingCart:
+    pass
+
+class OrderManager:
+    pass
+'''
+        ast_dict, _ = parse_python(code.strip(), "test.py")
+        symbols, edges = extract_python_symbols(ast_dict, "test.py")
+
+        class_symbols = [s for s in symbols if s["symbol_type"] == "class"]
+        class_names = [s["name"] for s in class_symbols]
+
+        # Must have real names
+        assert "ShoppingCart" in class_names
+        assert "OrderManager" in class_names
+
+        # Must NOT have placeholder names
+        for name in class_names:
+            assert not name.startswith("class_"), f"Placeholder name found: {name}"
+
     def test_scope_tracking_works(self):
         """Symbols must track their scope correctly."""
-        pass
+        from codebatch.tasks.symbols import extract_python_symbols
+
+        code = '''
+class Cart:
+    def add_item(self, item):
+        count = 0
+        return count
+'''
+        ast_dict, _ = parse_python(code.strip(), "test.py")
+        symbols, edges = extract_python_symbols(ast_dict, "test.py")
+
+        # Find class symbol
+        cart_symbol = next((s for s in symbols if s["name"] == "Cart"), None)
+        assert cart_symbol is not None
+        assert cart_symbol["scope"] == "module"
+
+        # Find method symbol
+        add_item_symbol = next((s for s in symbols if s["name"] == "add_item"), None)
+        assert add_item_symbol is not None
+        assert add_item_symbol["scope"] == "Cart"
+
+        # Find variable symbol
+        count_symbol = next((s for s in symbols if s["name"] == "count"), None)
+        assert count_symbol is not None
+        assert count_symbol["scope"] == "add_item"
+
+    def test_import_edges_have_real_targets(self):
+        """Import edges must have real module names, not placeholders."""
+        from codebatch.tasks.symbols import extract_python_symbols
+
+        code = '''
+import os
+import sys
+from pathlib import Path
+from typing import List, Dict
+'''
+        ast_dict, _ = parse_python(code.strip(), "test.py")
+        symbols, edges = extract_python_symbols(ast_dict, "test.py")
+
+        import_edges = [e for e in edges if e["edge_type"] == "imports"]
+        targets = [e["target"] for e in import_edges]
+
+        # Must have real module names
+        assert "os" in targets
+        assert "sys" in targets
+        assert "pathlib.Path" in targets
+        assert "typing.List" in targets
+        assert "typing.Dict" in targets
+
+        # Must NOT have placeholder targets
+        for target in targets:
+            assert not target.startswith("module_"), f"Placeholder target: {target}"
+            assert not target.startswith("from_module_"), f"Placeholder target: {target}"
+
+    def test_no_placeholder_names_anywhere(self):
+        """Comprehensive check: no placeholder patterns in any symbol or edge."""
+        from codebatch.tasks.symbols import extract_python_symbols
+        import re
+
+        code = '''
+import os
+from collections import defaultdict
+
+CONSTANT = 42
+
+class MyClass:
+    my_var = "hello"
+
+    def my_method(self, arg1, arg2):
+        local_var = arg1 + arg2
+        return local_var
+
+def standalone_func():
+    x = 1
+    return x
+'''
+        ast_dict, _ = parse_python(code.strip(), "test.py")
+        symbols, edges = extract_python_symbols(ast_dict, "test.py")
+
+        # Placeholder patterns: name_<number> where number is a line number
+        placeholder_pattern = re.compile(r'^(function|class|variable|module|from_module)_\d+$')
+
+        # Check all symbol names
+        for symbol in symbols:
+            name = symbol.get("name", "")
+            assert not placeholder_pattern.match(name), f"Placeholder pattern found: {name}"
+            # Name should be a real identifier
+            assert name.isidentifier() or "." in name, f"Invalid name: {name}"
+
+        # Check all edge targets
+        for edge in edges:
+            target = edge.get("target", "")
+            assert not placeholder_pattern.match(target), f"Placeholder pattern found: {target}"
 
 
 class TestGateP8Roundtrip:
