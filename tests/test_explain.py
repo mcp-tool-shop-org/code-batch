@@ -5,12 +5,21 @@ Tests verify:
 - Explain output includes tasks referenced
 - Explain output does NOT mention events as a dependency
 - Explain output is deterministic
+- Explain works even when events directory doesn't exist (negative test)
 """
 
 import json
+import shutil
 import pytest
+from pathlib import Path
 
-from codebatch.cli import cmd_explain, get_explain_info, print_explain
+from codebatch.cli import cmd_explain, cmd_inspect, get_explain_info, print_explain
+from codebatch.store import init_store
+from codebatch.snapshot import SnapshotBuilder
+from codebatch.batch import BatchManager
+from codebatch.runner import ShardRunner
+from codebatch.common import object_shard_prefix
+from codebatch.tasks import get_executor
 
 
 class MockArgs:
@@ -210,3 +219,114 @@ class TestPrintExplain:
         assert "Grouping: by kind" in captured.out
         assert "Notes:" in captured.out
         assert "note1" in captured.out
+
+
+class TestExplainEventsIndependence:
+    """P6-EXPLAIN negative test: explain should be unchanged when events don't exist.
+
+    This verifies that Phase 6 commands truly don't depend on events by:
+    1. Running inspect with events directory present
+    2. Deleting events directory
+    3. Running inspect again - output should be identical
+    """
+
+    @pytest.fixture
+    def store_with_and_without_events(self, tmp_path: Path):
+        """Create a store, run tasks, capture outputs with/without events."""
+        store = tmp_path / "store"
+        store.mkdir()
+        init_store(store)
+
+        # Create corpus
+        corpus = tmp_path / "corpus"
+        corpus.mkdir()
+        (corpus / "test.py").write_text("x = 1\nprint(x)")
+
+        # Create snapshot and batch
+        builder = SnapshotBuilder(store)
+        snapshot_id = builder.build(corpus)
+
+        manager = BatchManager(store)
+        batch_id = manager.init_batch(snapshot_id, "full")
+
+        # Run tasks
+        runner = ShardRunner(store)
+        records = builder.load_file_index(snapshot_id)
+        shards = set(object_shard_prefix(r["object"]) for r in records)
+
+        plan = manager.load_plan(batch_id)
+        for shard_id in shards:
+            for task_def in plan["tasks"]:
+                executor = get_executor(task_def["task_id"])
+                runner.run_shard(batch_id, task_def["task_id"], shard_id, executor)
+
+        return store, batch_id
+
+    def test_inspect_output_unchanged_without_events(
+        self, store_with_and_without_events, capsys
+    ):
+        """inspect output should be identical with or without events directory."""
+        store, batch_id = store_with_and_without_events
+
+        # Run inspect with events present
+        args = MockArgs(
+            store=str(store),
+            batch=batch_id,
+            path="test.py",
+            kinds=None,
+            json=True,
+            no_color=True,
+            explain=False,
+        )
+        cmd_inspect(args)
+        output_with_events = capsys.readouterr().out
+
+        # Delete events directory if it exists
+        events_dir = store / "events"
+        if events_dir.exists():
+            shutil.rmtree(events_dir)
+
+        # Run inspect again without events
+        cmd_inspect(args)
+        output_without_events = capsys.readouterr().out
+
+        # Output should be identical
+        assert output_with_events == output_without_events, (
+            "inspect output changed after deleting events directory - "
+            "Phase 6 commands should NOT depend on events"
+        )
+
+    def test_explain_output_unchanged_without_events(self, capsys):
+        """explain output should be identical regardless of events existence.
+
+        This is a simpler test since explain doesn't need a store.
+        """
+        # Get explain output
+        args = MockArgs(subcommand="inspect", json=True)
+        cmd_explain(args)
+        output1 = capsys.readouterr().out
+
+        # Get explain output again (events state unchanged, but verifies determinism)
+        cmd_explain(args)
+        output2 = capsys.readouterr().out
+
+        assert output1 == output2, "explain output should be deterministic"
+
+        # Also verify the explain info explicitly states no events dependency
+        info = json.loads(output1)
+        notes_text = " ".join(info.get("notes", []))
+        assert "does not use events" in notes_text.lower(), (
+            "explain should explicitly state that events are NOT used"
+        )
+
+    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements"])
+    def test_explain_never_mentions_events_in_data_sources(self, command):
+        """Explain data_sources should never mention events."""
+        info = get_explain_info(command)
+
+        # No data source should reference events
+        for src in info.get("data_sources", []):
+            src_lower = src.lower()
+            assert "event" not in src_lower, (
+                f"Explain for '{command}' mentions events in data_sources: {src}"
+            )

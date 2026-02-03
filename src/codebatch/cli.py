@@ -389,6 +389,19 @@ def main(argv: list[str] = None) -> int:
     improvements_parser.add_argument("--explain", action="store_true", help="Show data sources instead of data")
     improvements_parser.set_defaults(func=cmd_improvements)
 
+    # ========== Phase 7 Integration API Commands ==========
+
+    # api command - show API capabilities
+    api_parser = subparsers.add_parser("api", help="Show API capabilities and metadata")
+    api_parser.add_argument("--json", action="store_true", help="Output as JSON (recommended)")
+    api_parser.set_defaults(func=cmd_api)
+
+    # diagnose command - verify store integrity
+    diagnose_parser = subparsers.add_parser("diagnose", help="Verify store integrity and compatibility")
+    diagnose_parser.add_argument("--store", required=True, help="Store root directory")
+    diagnose_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    diagnose_parser.set_defaults(func=cmd_diagnose)
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -1849,6 +1862,398 @@ def cmd_improvements(args: argparse.Namespace) -> int:
             print(render_table(delta.improvements, columns, sort_key="path", color_mode=color_mode))
 
     return 0
+
+
+# =============================================================================
+# Phase 7: Integration API
+# =============================================================================
+
+
+def get_api_info() -> dict:
+    """Get API capability information.
+
+    Returns a deterministic, byte-stable representation of CodeBatch
+    capabilities for integration purposes.
+
+    Returns:
+        API info dict with schema_name, schema_version, producer, build,
+        commands, pipelines, tasks, and output_kinds.
+    """
+    import platform
+    import sys as _sys
+
+    from .common import VERSION, SCHEMA_VERSION
+    from .registry import (
+        COMMANDS,
+        TASKS,
+        OUTPUT_KINDS,
+        list_commands,
+        list_tasks,
+        list_output_kinds,
+    )
+    from .batch import PIPELINES
+
+    # Detect available features (semi-dynamic)
+    features = {}
+
+    # Phase 5 workflow
+    try:
+        from . import workflow
+        features["phase5_workflow"] = True
+    except ImportError:
+        features["phase5_workflow"] = False
+
+    # Phase 6 UI
+    try:
+        from . import ui
+        features["phase6_ui"] = True
+    except ImportError:
+        features["phase6_ui"] = False
+
+    # Diff engine
+    try:
+        from .ui import diff
+        features["diff"] = True
+    except ImportError:
+        features["diff"] = False
+
+    # Cache (future)
+    try:
+        from . import cache
+        features["cache"] = True
+    except ImportError:
+        features["cache"] = False
+
+    # Build commands list (sorted by name)
+    commands = []
+    for cmd in list_commands():
+        commands.append({
+            "name": cmd.name,
+            "description": cmd.description,
+            "read_only": cmd.read_only,
+            "supports_json": cmd.supports_json,
+            "supports_explain": cmd.supports_explain,
+            "requires_store": cmd.requires_store,
+            "requires_batch": cmd.requires_batch,
+            "since": cmd.since,
+            "group": cmd.group,
+        })
+
+    # Build pipelines list (sorted by name)
+    pipelines = []
+    for name in sorted(PIPELINES.keys()):
+        pipeline_def = PIPELINES[name]
+        tasks_list = []
+        for task_def in pipeline_def["tasks"]:
+            tasks_list.append({
+                "task_id": task_def["task_id"],
+                "deps": task_def.get("depends_on", []),
+            })
+        pipelines.append({
+            "name": name,
+            "description": pipeline_def.get("description", ""),
+            "tasks": tasks_list,
+        })
+
+    # Build tasks list (sorted by task_id)
+    tasks = []
+    for task in list_tasks():
+        tasks.append({
+            "task_id": task.task_id,
+            "type": task.task_type,
+            "description": task.description,
+            "kinds_out": list(task.kinds_out),
+            "deps": list(task.deps),
+        })
+
+    # Build output kinds list (sorted by kind)
+    output_kinds = []
+    for ok in list_output_kinds():
+        output_kinds.append({
+            "kind": ok.kind,
+            "description": ok.description,
+            "canonical_key": list(ok.canonical_key),
+        })
+
+    return {
+        "schema_name": "codebatch.api",
+        "schema_version": 1,
+        "producer": {
+            "name": "codebatch",
+            "version": VERSION,
+        },
+        "build": {
+            "platform": _sys.platform,
+            "python": platform.python_version(),
+            "schema_version": SCHEMA_VERSION,
+            "features": features,
+        },
+        "commands": commands,
+        "pipelines": pipelines,
+        "tasks": tasks,
+        "output_kinds": output_kinds,
+    }
+
+
+def cmd_api(args: argparse.Namespace) -> int:
+    """Handle the api command (Phase 7).
+
+    Shows API capabilities and metadata for integration.
+    Read-only: does not require or modify the store.
+    No side effects: works without any arguments.
+    """
+    info = get_api_info()
+
+    if args.json:
+        # Use sorted keys for deterministic output
+        print(json.dumps(info, indent=2, sort_keys=False))
+    else:
+        # Human-readable output
+        print(f"CodeBatch API v{info['schema_version']}")
+        print(f"Producer: {info['producer']['name']} {info['producer']['version']}")
+        print(f"Platform: {info['build']['platform']}")
+        print(f"Python: {info['build']['python']}")
+        print()
+
+        # Features
+        print("Features:")
+        for feat, enabled in sorted(info['build']['features'].items()):
+            status = "[x]" if enabled else "[ ]"
+            print(f"  {status} {feat}")
+        print()
+
+        # Commands
+        print(f"Commands ({len(info['commands'])}):")
+        for cmd in info['commands'][:10]:  # Show first 10
+            flags = []
+            if cmd['read_only']:
+                flags.append("RO")
+            if cmd['supports_json']:
+                flags.append("JSON")
+            flag_str = f" [{','.join(flags)}]" if flags else ""
+            print(f"  {cmd['name']:<20} {cmd['description'][:40]}{flag_str}")
+        if len(info['commands']) > 10:
+            print(f"  ... and {len(info['commands']) - 10} more")
+        print()
+
+        # Pipelines
+        print(f"Pipelines ({len(info['pipelines'])}):")
+        for pipeline in info['pipelines']:
+            task_ids = [t['task_id'] for t in pipeline['tasks']]
+            print(f"  {pipeline['name']:<15} {' -> '.join(task_ids)}")
+        print()
+
+        # Output kinds
+        print(f"Output Kinds ({len(info['output_kinds'])}):")
+        for ok in info['output_kinds']:
+            print(f"  {ok['kind']:<12} {ok['description']}")
+        print()
+
+        print("Tip: Use --json for machine-readable output")
+
+    return 0
+
+
+def get_diagnose_info(store_root: Path) -> dict:
+    """Get diagnostic information about a store.
+
+    Verifies:
+    - Store structure is valid
+    - Schema version is compatible
+    - Snapshots are accessible
+    - Batches are accessible
+
+    Returns:
+        Diagnostic info dict with checks and results.
+    """
+    from .common import VERSION, SCHEMA_VERSION
+    from .batch import BatchManager
+    from .snapshot import SnapshotBuilder
+
+    checks = []
+    issues = []
+    warnings = []
+
+    # Check 1: Store exists
+    store_exists = store_root.exists()
+    checks.append({
+        "name": "store_exists",
+        "passed": store_exists,
+        "message": "Store directory exists" if store_exists else "Store directory not found",
+    })
+
+    if not store_exists:
+        return {
+            "schema_name": "codebatch.diagnose",
+            "schema_version": 1,
+            "store": str(store_root),
+            "status": "error",
+            "checks": checks,
+            "issues": [{"severity": "error", "message": f"Store not found: {store_root}"}],
+            "warnings": [],
+            "summary": {"total_checks": 1, "passed": 0, "failed": 1},
+        }
+
+    # Check 2: store.json exists and is valid
+    store_json = store_root / "store.json"
+    store_json_valid = False
+    store_meta = None
+
+    if store_json.exists():
+        try:
+            with open(store_json) as f:
+                store_meta = json.load(f)
+            store_json_valid = True
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    checks.append({
+        "name": "store_json_valid",
+        "passed": store_json_valid,
+        "message": "store.json is valid" if store_json_valid else "store.json is missing or invalid",
+    })
+
+    if not store_json_valid:
+        issues.append({"severity": "error", "message": "store.json is missing or invalid"})
+
+    # Check 3: Schema version compatibility
+    schema_compatible = False
+    if store_meta:
+        store_schema = store_meta.get("schema_version", 0)
+        schema_compatible = store_schema == SCHEMA_VERSION
+        if not schema_compatible:
+            issues.append({
+                "severity": "error",
+                "message": f"Schema version mismatch: store has {store_schema}, expected {SCHEMA_VERSION}",
+            })
+
+    checks.append({
+        "name": "schema_compatible",
+        "passed": schema_compatible,
+        "message": f"Schema version {SCHEMA_VERSION}" if schema_compatible else "Schema version mismatch",
+    })
+
+    # Check 4: Required directories exist
+    required_dirs = ["objects", "snapshots", "batches"]
+    dirs_exist = all((store_root / d).is_dir() for d in required_dirs)
+
+    checks.append({
+        "name": "required_dirs_exist",
+        "passed": dirs_exist,
+        "message": "Required directories exist" if dirs_exist else "Missing required directories",
+    })
+
+    if not dirs_exist:
+        missing = [d for d in required_dirs if not (store_root / d).is_dir()]
+        issues.append({"severity": "error", "message": f"Missing directories: {', '.join(missing)}"})
+
+    # Check 5: Snapshots accessible
+    snapshots_ok = False
+    snapshot_count = 0
+    try:
+        builder = SnapshotBuilder(store_root)
+        snapshots = builder.list_snapshots()
+        snapshot_count = len(snapshots)
+        snapshots_ok = True
+    except Exception as e:
+        issues.append({"severity": "warning", "message": f"Cannot list snapshots: {e}"})
+
+    checks.append({
+        "name": "snapshots_accessible",
+        "passed": snapshots_ok,
+        "message": f"Found {snapshot_count} snapshots" if snapshots_ok else "Cannot access snapshots",
+    })
+
+    # Check 6: Batches accessible
+    batches_ok = False
+    batch_count = 0
+    try:
+        manager = BatchManager(store_root)
+        batches = manager.list_batches()
+        batch_count = len(batches)
+        batches_ok = True
+    except Exception as e:
+        issues.append({"severity": "warning", "message": f"Cannot list batches: {e}"})
+
+    checks.append({
+        "name": "batches_accessible",
+        "passed": batches_ok,
+        "message": f"Found {batch_count} batches" if batches_ok else "Cannot access batches",
+    })
+
+    # Summary
+    passed = sum(1 for c in checks if c["passed"])
+    failed = len(checks) - passed
+
+    status = "ok" if failed == 0 else ("warning" if not issues else "error")
+
+    return {
+        "schema_name": "codebatch.diagnose",
+        "schema_version": 1,
+        "store": str(store_root),
+        "status": status,
+        "codebatch_version": VERSION,
+        "store_schema_version": store_meta.get("schema_version") if store_meta else None,
+        "expected_schema_version": SCHEMA_VERSION,
+        "checks": checks,
+        "issues": issues,
+        "warnings": warnings,
+        "summary": {
+            "total_checks": len(checks),
+            "passed": passed,
+            "failed": failed,
+            "snapshots": snapshot_count,
+            "batches": batch_count,
+        },
+    }
+
+
+def cmd_diagnose(args: argparse.Namespace) -> int:
+    """Handle the diagnose command (Phase 7).
+
+    Verifies store integrity and compatibility.
+    Read-only: does not modify the store.
+    """
+    store_root = Path(args.store)
+
+    info = get_diagnose_info(store_root)
+
+    if args.json:
+        print(json.dumps(info, indent=2))
+    else:
+        # Human-readable output
+        status_icon = {
+            "ok": "[OK]",
+            "warning": "[WARN]",
+            "error": "[FAIL]",
+        }.get(info["status"], "[?]")
+
+        print(f"Diagnose: {info['store']}")
+        print(f"Status: {status_icon} {info['status'].upper()}")
+        print()
+
+        print("Checks:")
+        for check in info["checks"]:
+            icon = "[x]" if check["passed"] else "[ ]"
+            print(f"  {icon} {check['name']}: {check['message']}")
+        print()
+
+        if info["issues"]:
+            print("Issues:")
+            for issue in info["issues"]:
+                sev = issue["severity"].upper()
+                print(f"  [{sev}] {issue['message']}")
+            print()
+
+        summary = info["summary"]
+        print(f"Summary: {summary['passed']}/{summary['total_checks']} checks passed")
+        if summary.get("snapshots") is not None:
+            print(f"  Snapshots: {summary['snapshots']}")
+        if summary.get("batches") is not None:
+            print(f"  Batches: {summary['batches']}")
+
+    # Return non-zero if there are errors
+    return 0 if info["status"] != "error" else 1
 
 
 if __name__ == "__main__":

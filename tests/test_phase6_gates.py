@@ -56,6 +56,70 @@ def canonicalize_store_tree(store_root: Path) -> Set[str]:
     return paths
 
 
+def capture_store_mtimes(store_root: Path) -> dict[str, float]:
+    """Capture mtime for every file in store.
+
+    Used by P6-RO gate to verify no files were modified (even in-place).
+
+    Returns:
+        Dict mapping relative path to mtime.
+    """
+    mtimes = {}
+    for root, dirs, files in os.walk(store_root):
+        # Skip __pycache__ and .pyc files
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+
+        root_path = Path(root)
+        for f in files:
+            if f.endswith(".pyc"):
+                continue
+            file_path = root_path / f
+            rel = str(file_path.relative_to(store_root))
+            mtimes[rel] = file_path.stat().st_mtime
+    return mtimes
+
+
+def assert_store_unchanged(
+    store: Path,
+    before_paths: Set[str],
+    after_paths: Set[str],
+    before_mtimes: dict[str, float],
+    after_mtimes: dict[str, float],
+    command_name: str,
+) -> None:
+    """Assert store was not modified by command.
+
+    Checks:
+    1. No files added
+    2. No files removed
+    3. No files modified (mtime unchanged)
+
+    Args:
+        store: Store root path.
+        before_paths: Files before command.
+        after_paths: Files after command.
+        before_mtimes: Mtimes before command.
+        after_mtimes: Mtimes after command.
+        command_name: Name of command (for error messages).
+    """
+    # Check no files added
+    added = after_paths - before_paths
+    assert not added, f"Store modified by {command_name}! Added: {added}"
+
+    # Check no files removed
+    removed = before_paths - after_paths
+    assert not removed, f"Store modified by {command_name}! Removed: {removed}"
+
+    # Check no files modified (mtime changed)
+    modified = []
+    for path in before_paths:
+        if path in before_mtimes and path in after_mtimes:
+            if before_mtimes[path] != after_mtimes[path]:
+                modified.append(path)
+
+    assert not modified, f"Store modified by {command_name}! Modified: {modified}"
+
+
 def contains_ansi(text: str) -> bool:
     """Check if text contains ANSI escape sequences.
 
@@ -174,13 +238,20 @@ def two_batches(tmp_path: Path):
 
 
 class TestGateP6RO:
-    """P6-RO gate: Phase 6 commands must not modify the store."""
+    """P6-RO gate: Phase 6 commands must not modify the store.
+
+    These tests verify:
+    1. No files added to store
+    2. No files removed from store
+    3. No files modified (mtime unchanged)
+    """
 
     def test_inspect_does_not_write(self, store_with_batch, capsys):
         """inspect command should not modify store."""
         store, batch_id = store_with_batch
 
-        before = canonicalize_store_tree(store)
+        before_paths = canonicalize_store_tree(store)
+        before_mtimes = capture_store_mtimes(store)
 
         args = MockArgs(
             store=str(store),
@@ -193,14 +264,19 @@ class TestGateP6RO:
         )
         cmd_inspect(args)
 
-        after = canonicalize_store_tree(store)
-        assert before == after, f"Store modified by inspect! Added: {after - before}"
+        after_paths = canonicalize_store_tree(store)
+        after_mtimes = capture_store_mtimes(store)
+
+        assert_store_unchanged(
+            store, before_paths, after_paths, before_mtimes, after_mtimes, "inspect"
+        )
 
     def test_diff_does_not_write(self, two_batches, capsys):
         """diff command should not modify store."""
         store, batch_a, batch_b = two_batches
 
-        before = canonicalize_store_tree(store)
+        before_paths = canonicalize_store_tree(store)
+        before_mtimes = capture_store_mtimes(store)
 
         args = MockArgs(
             store=str(store),
@@ -213,14 +289,19 @@ class TestGateP6RO:
         )
         cmd_diff(args)
 
-        after = canonicalize_store_tree(store)
-        assert before == after, f"Store modified by diff!"
+        after_paths = canonicalize_store_tree(store)
+        after_mtimes = capture_store_mtimes(store)
+
+        assert_store_unchanged(
+            store, before_paths, after_paths, before_mtimes, after_mtimes, "diff"
+        )
 
     def test_regressions_does_not_write(self, two_batches, capsys):
         """regressions command should not modify store."""
         store, batch_a, batch_b = two_batches
 
-        before = canonicalize_store_tree(store)
+        before_paths = canonicalize_store_tree(store)
+        before_mtimes = capture_store_mtimes(store)
 
         args = MockArgs(
             store=str(store),
@@ -232,14 +313,19 @@ class TestGateP6RO:
         )
         cmd_regressions(args)
 
-        after = canonicalize_store_tree(store)
-        assert before == after, f"Store modified by regressions!"
+        after_paths = canonicalize_store_tree(store)
+        after_mtimes = capture_store_mtimes(store)
+
+        assert_store_unchanged(
+            store, before_paths, after_paths, before_mtimes, after_mtimes, "regressions"
+        )
 
     def test_improvements_does_not_write(self, two_batches, capsys):
         """improvements command should not modify store."""
         store, batch_a, batch_b = two_batches
 
-        before = canonicalize_store_tree(store)
+        before_paths = canonicalize_store_tree(store)
+        before_mtimes = capture_store_mtimes(store)
 
         args = MockArgs(
             store=str(store),
@@ -251,8 +337,12 @@ class TestGateP6RO:
         )
         cmd_improvements(args)
 
-        after = canonicalize_store_tree(store)
-        assert before == after, f"Store modified by improvements!"
+        after_paths = canonicalize_store_tree(store)
+        after_mtimes = capture_store_mtimes(store)
+
+        assert_store_unchanged(
+            store, before_paths, after_paths, before_mtimes, after_mtimes, "improvements"
+        )
 
 
 # --- Gate P6-HEADLESS: Headless Compatibility ---

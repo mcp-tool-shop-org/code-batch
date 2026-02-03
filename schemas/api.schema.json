@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codebatch.dev/schemas/api.schema.json",
+  "title": "CodeBatch API Response",
+  "description": "Schema for codebatch api --json output. Describes capabilities and metadata for integration clients.",
+  "type": "object",
+  "required": [
+    "schema_name",
+    "schema_version",
+    "producer",
+    "build",
+    "commands",
+    "pipelines",
+    "tasks",
+    "output_kinds"
+  ],
+  "properties": {
+    "schema_name": {
+      "type": "string",
+      "const": "codebatch.api",
+      "description": "Schema identifier, always 'codebatch.api'"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version number"
+    },
+    "producer": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "const": "codebatch",
+          "description": "Producer name, always 'codebatch'"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semantic version string (e.g., '0.7.0')"
+        }
+      },
+      "additionalProperties": false
+    },
+    "build": {
+      "type": "object",
+      "required": ["platform", "python", "schema_version", "features"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "description": "Platform identifier (e.g., 'win32', 'linux', 'darwin')"
+        },
+        "python": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Python version string"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Output schema version"
+        },
+        "features": {
+          "type": "object",
+          "description": "Feature flags indicating available capabilities",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "commands": {
+      "type": "array",
+      "description": "Available CLI commands with metadata",
+      "items": {
+        "$ref": "#/$defs/command"
+      }
+    },
+    "pipelines": {
+      "type": "array",
+      "description": "Available pipelines",
+      "items": {
+        "$ref": "#/$defs/pipeline"
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "description": "Available tasks",
+      "items": {
+        "$ref": "#/$defs/task"
+      }
+    },
+    "output_kinds": {
+      "type": "array",
+      "description": "Output kind definitions with canonical keys",
+      "items": {
+        "$ref": "#/$defs/output_kind"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "command": {
+      "type": "object",
+      "required": ["name", "read_only", "supports_json", "since"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*([.][a-z][a-z0-9]*)*$",
+          "description": "Dot-delimited command name (e.g., 'snapshot.create', 'run')"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "read_only": {
+          "type": "boolean",
+          "description": "True if command never modifies the store"
+        },
+        "supports_json": {
+          "type": "boolean",
+          "description": "True if command has --json output"
+        },
+        "supports_explain": {
+          "type": "boolean",
+          "description": "True if command has --explain flag"
+        },
+        "requires_store": {
+          "type": "boolean",
+          "description": "True if command needs --store argument"
+        },
+        "requires_batch": {
+          "type": "boolean",
+          "description": "True if command needs --batch argument"
+        },
+        "since": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Version when command was introduced"
+        },
+        "group": {
+          "type": "string",
+          "description": "Command group for UI organization"
+        }
+      },
+      "additionalProperties": false
+    },
+    "pipeline": {
+      "type": "object",
+      "required": ["name", "tasks"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Pipeline name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "tasks": {
+          "type": "array",
+          "description": "Tasks in execution order",
+          "items": {
+            "type": "object",
+            "required": ["task_id", "deps"],
+            "properties": {
+              "task_id": {
+                "type": "string",
+                "description": "Task identifier"
+              },
+              "deps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Task dependencies"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "task": {
+      "type": "object",
+      "required": ["task_id", "type", "kinds_out", "deps"],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "description": "Unique task identifier"
+        },
+        "type": {
+          "type": "string",
+          "description": "Task type (parse, analyze, symbols, lint)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "kinds_out": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Output kinds this task produces"
+        },
+        "deps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Task dependencies"
+        }
+      },
+      "additionalProperties": false
+    },
+    "output_kind": {
+      "type": "object",
+      "required": ["kind", "canonical_key"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Output kind name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "canonical_key": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Fields that uniquely identify records of this kind"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

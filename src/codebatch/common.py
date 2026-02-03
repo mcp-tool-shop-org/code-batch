@@ -9,10 +9,13 @@ from typing import Tuple
 # Schema version as integer per contract
 SCHEMA_VERSION = 1
 
+# CodeBatch version
+VERSION = "0.7.0"
+
 # Producer info - identifies the implementation that created records
 PRODUCER = {
     "name": "codebatch",
-    "version": "0.1.0",
+    "version": VERSION,
 }
 
 
