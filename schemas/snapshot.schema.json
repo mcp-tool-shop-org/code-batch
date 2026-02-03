@@ -10,9 +10,18 @@
       "const": "codebatch.snapshot"
     },
     "schema_version": {
-      "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+$",
-      "description": "Schema version in major.minor format"
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version number"
+    },
+    "producer": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" }
+      },
+      "description": "Tool that produced this record"
     },
     "snapshot_id": {
       "type": "string",

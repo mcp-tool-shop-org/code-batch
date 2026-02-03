@@ -7,8 +7,9 @@
   "required": ["schema_version", "snapshot_id", "batch_id", "task_id", "shard_id", "path", "kind", "ts"],
   "properties": {
     "schema_version": {
-      "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+$"
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version number"
     },
     "snapshot_id": {
       "type": "string",
@@ -43,8 +44,8 @@
     },
     "object": {
       "type": "string",
-      "pattern": "^[a-f0-9]{64}$",
-      "description": "SHA-256 hash of output content in CAS"
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "Object reference in sha256:<hex> format"
     },
     "format": {
       "type": "string",

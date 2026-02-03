@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mcp-tool-shop-org/code-batch/schemas/store.schema.json",
+  "title": "Store",
+  "description": "CodeBatch store root metadata",
+  "type": "object",
+  "required": ["schema_name", "schema_version", "created_at"],
+  "properties": {
+    "schema_name": {
+      "const": "codebatch.store"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version number"
+    },
+    "producer": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" }
+      },
+      "description": "Tool that produced this record"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of store creation"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional user-defined metadata"
+    }
+  },
+  "additionalProperties": true
+}

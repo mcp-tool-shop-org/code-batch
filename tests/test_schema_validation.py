@@ -25,7 +25,7 @@ class TestSnapshotSchema:
         schema = load_schema("snapshot")
         record = {
             "schema_name": "codebatch.snapshot",
-            "schema_version": "1.0",
+            "schema_version": 1,
             "snapshot_id": "snap-123",
             "created_at": "2025-02-02T00:00:00Z",
             "source": {
@@ -40,7 +40,7 @@ class TestSnapshotSchema:
         schema = load_schema("snapshot")
         record = {
             "schema_name": "codebatch.snapshot",
-            "schema_version": "1.0",
+            "schema_version": 1,
             # missing snapshot_id, created_at, source
         }
         with pytest.raises(jsonschema.ValidationError):
@@ -51,7 +51,7 @@ class TestSnapshotSchema:
         schema = load_schema("snapshot")
         record = {
             "schema_name": "codebatch.snapshot",
-            "schema_version": "1.0",
+            "schema_version": 1,
             "snapshot_id": "snap-123",
             "created_at": "2025-02-02T00:00:00Z",
             "source": {"type": "directory", "path": "/path"},
@@ -67,10 +67,10 @@ class TestFilesIndexSchema:
         """Valid file record validates."""
         schema = load_schema("files-index-record")
         record = {
-            "schema_version": "1.0",
+            "schema_version": 1,
             "path": "src/main.py",
             "path_key": "src/main.py",
-            "object": "a" * 64,
+            "object": "sha256:" + "a" * 64,
             "size": 100
         }
         jsonschema.validate(record, schema)
@@ -96,7 +96,7 @@ class TestBatchSchema:
         schema = load_schema("batch")
         record = {
             "schema_name": "codebatch.batch",
-            "schema_version": "1.0",
+            "schema_version": 1,
             "batch_id": "batch-123",
             "snapshot_id": "snap-123",
             "created_at": "2025-02-02T00:00:00Z",
@@ -113,7 +113,7 @@ class TestTaskSchema:
         schema = load_schema("task")
         record = {
             "schema_name": "codebatch.task",
-            "schema_version": "1.0",
+            "schema_version": 1,
             "task_id": "01_parse",
             "batch_id": "batch-123",
             "type": "parse",
@@ -133,7 +133,7 @@ class TestShardStateSchema:
         schema = load_schema("state")
         record = {
             "schema_name": "codebatch.shard_state",
-            "schema_version": "1.0",
+            "schema_version": 1,
             "shard_id": "ab",
             "task_id": "01_parse",
             "batch_id": "batch-123",
@@ -146,7 +146,7 @@ class TestShardStateSchema:
         schema = load_schema("state")
         base = {
             "schema_name": "codebatch.shard_state",
-            "schema_version": "1.0",
+            "schema_version": 1,
             "shard_id": "ab",
             "task_id": "01_parse",
             "batch_id": "batch-123",
@@ -163,7 +163,7 @@ class TestOutputRecordSchema:
         """Valid AST output validates."""
         schema = load_schema("output-record")
         record = {
-            "schema_version": "1.0",
+            "schema_version": 1,
             "snapshot_id": "snap-123",
             "batch_id": "batch-123",
             "task_id": "01_parse",
@@ -178,7 +178,7 @@ class TestOutputRecordSchema:
         """Valid diagnostic output validates."""
         schema = load_schema("output-record")
         record = {
-            "schema_version": "1.0",
+            "schema_version": 1,
             "snapshot_id": "snap-123",
             "batch_id": "batch-123",
             "task_id": "01_parse",
@@ -200,7 +200,7 @@ class TestEventRecordSchema:
         """Valid event validates."""
         schema = load_schema("event-record")
         record = {
-            "schema_version": "1.0",
+            "schema_version": 1,
             "ts": "2025-02-02T00:00:00Z",
             "event": "shard_started",
             "batch_id": "batch-123",
@@ -218,12 +218,12 @@ class TestChunkManifestSchema:
         schema = load_schema("chunk-manifest")
         record = {
             "schema_name": "codebatch.chunk_manifest",
-            "schema_version": "1.0",
+            "schema_version": 1,
             "kind": "ast",
             "format": "json",
             "chunks": [
-                {"object": "a" * 64, "size": 1000, "index": 0},
-                {"object": "b" * 64, "size": 500, "index": 1}
+                {"object": "sha256:" + "a" * 64, "size": 1000, "index": 0},
+                {"object": "sha256:" + "b" * 64, "size": 500, "index": 1}
             ],
             "total_bytes": 1500
         }
