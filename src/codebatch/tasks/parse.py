@@ -6,7 +6,7 @@ For Phase 1, supports:
 - Text files (line-based tokenization)
 
 Emits:
-- kind=ast: AST objects stored in CAS
+- kind=ast: AST objects stored in CAS (format=json or format=json+chunks)
 - kind=diagnostic: Parse errors/warnings
 
 Enforces chunking threshold (default 16MB) with chunk manifest objects.
@@ -15,9 +15,9 @@ Enforces chunking threshold (default 16MB) with chunk manifest objects.
 import ast
 import json
 import re
-from datetime import datetime, timezone
-from typing import Optional
+from typing import Iterable, Optional
 
+from ..common import SCHEMA_VERSION, PRODUCER
 from ..runner import ShardRunner
 
 
@@ -39,9 +39,10 @@ def parse_python(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
 
     try:
         tree = ast.parse(content, filename=path)
-        # Convert AST to dict
+        # Convert AST to dict - summarized mode for reasonable size
         ast_dict = {
             "type": "Module",
+            "ast_mode": "summary",  # Explicit about summarization
             "body": [
                 {
                     "type": node.__class__.__name__,
@@ -95,7 +96,11 @@ def parse_javascript(content: str, path: str) -> tuple[Optional[dict], list[dict
     token_counts = {}
     for token_type, pattern in patterns.items():
         matches = re.findall(pattern, content)
-        token_counts[token_type] = len(matches) if isinstance(matches[0] if matches else '', str) else len(matches)
+        # Handle tuple returns from capture groups
+        if matches and isinstance(matches[0], tuple):
+            token_counts[token_type] = len(matches)
+        else:
+            token_counts[token_type] = len(matches)
 
     # Check for common issues
     # Unbalanced braces
@@ -112,6 +117,7 @@ def parse_javascript(content: str, path: str) -> tuple[Optional[dict], list[dict
 
     ast_dict = {
         "type": "TokenInfo",
+        "ast_mode": "tokens",
         "tokens": token_counts,
         "stats": {
             "lines": content.count('\n') + 1,
@@ -137,6 +143,7 @@ def parse_text(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
 
     ast_dict = {
         "type": "TextInfo",
+        "ast_mode": "text_stats",
         "stats": {
             "lines": len(lines),
             "words": len(words),
@@ -160,7 +167,7 @@ def create_chunk_manifest(
     Args:
         data: Raw bytes to chunk.
         kind: Output kind.
-        fmt: Format identifier.
+        fmt: Base format identifier (will be suffixed with +chunks).
         runner: ShardRunner for CAS access.
         chunk_size: Target chunk size.
 
@@ -181,7 +188,8 @@ def create_chunk_manifest(
 
     manifest = {
         "schema_name": "codebatch.chunk_manifest",
-        "schema_version": "1.0",
+        "schema_version": SCHEMA_VERSION,
+        "producer": PRODUCER,
         "kind": kind,
         "format": fmt,
         "chunks": chunks,
@@ -195,12 +203,12 @@ def create_chunk_manifest(
     return manifest_ref, manifest
 
 
-def parse_executor(config: dict, files: list[dict], runner: ShardRunner) -> list[dict]:
+def parse_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -> list[dict]:
     """Execute the parse task.
 
     Args:
         config: Task configuration.
-        files: List of file records for this shard.
+        files: Iterable of file records for this shard (may be iterator).
         runner: ShardRunner for CAS access.
 
     Returns:
@@ -247,15 +255,15 @@ def parse_executor(config: dict, files: list[dict], runner: ShardRunner) -> list
                 ast_bytes = json.dumps(ast_dict, separators=(",", ":")).encode("utf-8")
 
                 if len(ast_bytes) > chunk_threshold:
-                    # Create chunk manifest
+                    # Create chunk manifest - kind stays "ast", format becomes "json+chunks"
                     manifest_ref, _ = create_chunk_manifest(
                         ast_bytes, "ast", "json", runner, chunk_threshold
                     )
                     outputs.append({
                         "path": path,
-                        "kind": "chunk_manifest",
+                        "kind": "ast",  # Semantic kind stays ast
                         "object": manifest_ref,
-                        "format": "json",
+                        "format": "json+chunks",  # Format indicates chunking
                     })
                 else:
                     # Store directly

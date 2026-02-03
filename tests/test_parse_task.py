@@ -5,6 +5,7 @@ import pytest
 from pathlib import Path
 
 from codebatch.batch import BatchManager
+from codebatch.common import object_shard_prefix
 from codebatch.runner import ShardRunner
 from codebatch.snapshot import SnapshotBuilder
 from codebatch.tasks.parse import parse_executor, parse_python, parse_javascript
@@ -109,7 +110,7 @@ class TestParseExecutor:
         python_files = [r for r in records if r.get("lang_hint") == "python"]
         assert len(python_files) > 0, "No Python files in corpus"
 
-        shard_id = python_files[0]["object"][:2]
+        shard_id = object_shard_prefix(python_files[0]["object"])
 
         # Run with parse executor
         final_state = runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
@@ -133,7 +134,7 @@ class TestParseExecutor:
         records = runner.snapshot_builder.load_file_index(snapshot_id)
 
         python_files = [r for r in records if r.get("lang_hint") == "python"]
-        shard_id = python_files[0]["object"][:2]
+        shard_id = object_shard_prefix(python_files[0]["object"])
 
         runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
         outputs = runner.get_shard_outputs(batch_id, "01_parse", shard_id)
@@ -160,7 +161,7 @@ class TestParseExecutor:
         binary_files = [r for r in records if r["path"] == "binary.bin"]
         assert len(binary_files) > 0
 
-        shard_id = binary_files[0]["object"][:2]
+        shard_id = object_shard_prefix(binary_files[0]["object"])
 
         # Run should complete without error
         final_state = runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
@@ -186,8 +187,8 @@ class TestChunking:
         records = runner.snapshot_builder.load_file_index(snapshot_id)
 
         python_files = [r for r in records if r.get("lang_hint") == "python"]
-        shard_id = python_files[0]["object"][:2]
-        shard_files = [r for r in records if r["object"][:2] == shard_id]
+        shard_id = object_shard_prefix(python_files[0]["object"])
+        shard_files = [r for r in records if object_shard_prefix(r["object"]) == shard_id]
 
         # Run with low threshold
         outputs = parse_executor(config, shard_files, runner)
