@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mcp-tool-shop-org/code-batch/schemas/files-index-record.schema.json",
+  "title": "FilesIndexRecord",
+  "description": "A single line record in files.index.jsonl describing one file in a snapshot",
+  "type": "object",
+  "required": ["schema_version", "path", "path_key", "object", "size"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "Schema version in major.minor format"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonicalized file path with / separators, no . or .. segments, no trailing slash"
+    },
+    "path_key": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Normalized path for comparison (lowercase, normalized separators)"
+    },
+    "object": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 hash of file content"
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "File size in bytes"
+    },
+    "text_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 hash of normalized text content (optional, for text files)"
+    },
+    "lang_hint": {
+      "type": "string",
+      "description": "Detected or inferred programming language"
+    },
+    "mode": {
+      "type": "string",
+      "pattern": "^[0-7]{3,4}$",
+      "description": "Unix file mode (optional)"
+    },
+    "mtime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last modification time from source (optional)"
+    }
+  },
+  "additionalProperties": true
+}
