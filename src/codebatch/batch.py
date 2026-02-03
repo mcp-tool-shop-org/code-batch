@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from .common import SCHEMA_VERSION, PRODUCER, utc_now_z, BatchExistsError
 from .snapshot import SnapshotBuilder
 
 
@@ -26,6 +27,7 @@ def generate_batch_id() -> str:
 
 
 # Pipeline definitions
+# Note: 'analyze' pipeline is Phase 2 - registered but 02_analyze produces no outputs
 PIPELINES = {
     "parse": {
         "description": "Parse source files and emit AST + diagnostics",
@@ -42,7 +44,7 @@ PIPELINES = {
         ],
     },
     "analyze": {
-        "description": "Parse and analyze source files",
+        "description": "Parse and analyze source files (Phase 2: analyze step is stub)",
         "tasks": [
             {
                 "task_id": "01_parse",
@@ -58,6 +60,7 @@ PIPELINES = {
                 "type": "analyze",
                 "depends_on": ["01_parse"],
                 "config": {},
+                # Phase 2: not implemented - produces no outputs
             },
         ],
     },
@@ -67,7 +70,6 @@ PIPELINES = {
 class BatchManager:
     """Manages batch creation and execution scaffolding."""
 
-    SCHEMA_VERSION = "1.0"
     SHARD_COUNT = 256  # 00-ff
 
     def __init__(self, store_root: Path):
@@ -94,6 +96,7 @@ class BatchManager:
         pipeline: str,
         batch_id: Optional[str] = None,
         metadata: Optional[dict] = None,
+        allow_overwrite: bool = False,
     ) -> str:
         """Initialize a new batch with complete skeleton.
 
@@ -102,12 +105,14 @@ class BatchManager:
             pipeline: Pipeline name (e.g., 'parse', 'analyze').
             batch_id: Optional batch ID (auto-generated if not provided).
             metadata: Optional user metadata.
+            allow_overwrite: If True, allow overwriting existing batch.
 
         Returns:
             The batch ID.
 
         Raises:
             ValueError: If snapshot or pipeline doesn't exist.
+            BatchExistsError: If batch already exists and allow_overwrite=False.
         """
         # Verify snapshot exists
         try:
@@ -125,17 +130,25 @@ class BatchManager:
         pipeline_def = PIPELINES[pipeline]
         shard_ids = self._generate_shard_ids()
 
-        # Create batch directory
+        # Check for existing batch (immutability enforcement)
+        # Fail if directory exists at all - even empty dirs indicate a prior attempt
         batch_dir = self.batches_dir / batch_id
+        if batch_dir.exists() and not allow_overwrite:
+            raise BatchExistsError(batch_id)
+
+        # Create batch directory
         batch_dir.mkdir(parents=True, exist_ok=True)
+
+        created_at = utc_now_z()
 
         # Write batch.json
         batch_meta = {
             "schema_name": "codebatch.batch",
-            "schema_version": self.SCHEMA_VERSION,
+            "schema_version": SCHEMA_VERSION,
+            "producer": PRODUCER,
             "batch_id": batch_id,
             "snapshot_id": snapshot_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": created_at,
             "pipeline": pipeline,
             "status": "pending",
         }
@@ -148,7 +161,8 @@ class BatchManager:
         # Write plan.json
         plan = {
             "schema_name": "codebatch.plan",
-            "schema_version": self.SCHEMA_VERSION,
+            "schema_version": SCHEMA_VERSION,
+            "producer": PRODUCER,
             "batch_id": batch_id,
             "tasks": pipeline_def["tasks"],
         }
@@ -171,7 +185,8 @@ class BatchManager:
             # Write task.json
             task_meta = {
                 "schema_name": "codebatch.task",
-                "schema_version": self.SCHEMA_VERSION,
+                "schema_version": SCHEMA_VERSION,
+                "producer": PRODUCER,
                 "task_id": task_id,
                 "batch_id": batch_id,
                 "type": task_def["type"],
@@ -205,7 +220,8 @@ class BatchManager:
                 # Write initial state.json
                 state = {
                     "schema_name": "codebatch.shard_state",
-                    "schema_version": self.SCHEMA_VERSION,
+                    "schema_version": SCHEMA_VERSION,
+                    "producer": PRODUCER,
                     "shard_id": shard_id,
                     "task_id": task_id,
                     "batch_id": batch_id,
