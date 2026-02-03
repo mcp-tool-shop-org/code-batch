@@ -9,6 +9,23 @@ from .batch import BatchManager, PIPELINES
 from .query import QueryEngine
 from .runner import ShardRunner
 from .snapshot import SnapshotBuilder
+from .store import init_store, ensure_store, StoreExistsError, InvalidStoreError
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    """Handle the init command."""
+    store_root = Path(args.store)
+
+    try:
+        store_meta = init_store(store_root)
+        print(f"Initialized store: {store_root}")
+        if args.verbose:
+            print(f"  Schema version: {store_meta['schema_version']}")
+            print(f"  Created: {store_meta['created_at']}")
+        return 0
+    except StoreExistsError:
+        print(f"Error: Store already exists: {store_root}", file=sys.stderr)
+        return 1
 
 
 def cmd_snapshot(args: argparse.Namespace) -> int:
@@ -20,8 +37,12 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
         print(f"Error: Source is not a directory: {source_dir}", file=sys.stderr)
         return 1
 
-    # Create store root if needed
-    store_root.mkdir(parents=True, exist_ok=True)
+    # Ensure store is initialized
+    try:
+        ensure_store(store_root)
+    except InvalidStoreError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
 
     builder = SnapshotBuilder(store_root)
 
@@ -115,6 +136,12 @@ def main(argv: list[str] = None) -> int:
     parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # init command
+    init_parser = subparsers.add_parser("init", help="Initialize a new store")
+    init_parser.add_argument("store", help="Store root directory to initialize")
+    init_parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    init_parser.set_defaults(func=cmd_init)
 
     # snapshot command
     snapshot_parser = subparsers.add_parser("snapshot", help="Create a snapshot")
