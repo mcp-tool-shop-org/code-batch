@@ -1,13 +1,19 @@
 """Phase 2 Gate Tests.
 
 These tests enforce the Phase 2 hard perimeter:
-- Gate 1: Multi-task pipeline end-to-end
+- Gate 1: Multi-task pipeline end-to-end [PERIMETER HARNESS - extend for full chain]
 - Gate 2: Log independence (queries work without events)
-- Gate 3: Cache deletion equivalence
+- Gate 3: Cache deletion equivalence [PLACEHOLDER until indexes/ exists]
 - Gate 4: Retry determinism (per-shard replacement)
 - Gate 5: Spec stability (tested via CI script)
+- Gate 6: Truth store validation (runtime verification)
 
 All gates must pass for Phase 2 completion.
+
+Gate Status Key:
+  ✅ ENFORCED - Test exercises real Phase 2 semantics
+  ⚙️ HARNESS  - Perimeter infrastructure exists, extend when tasks land
+  ⏳ PLACEHOLDER - Will be meaningful when feature lands
 """
 
 import json
@@ -21,6 +27,16 @@ from codebatch.query import QueryEngine
 from codebatch.runner import ShardRunner
 from codebatch.snapshot import SnapshotBuilder
 from codebatch.tasks.parse import parse_executor
+
+
+# Allowed paths under store root (Phase 2 truth store policy)
+ALLOWED_STORE_PATHS = {
+    "store.json",
+    "objects",
+    "snapshots",
+    "batches",
+    "indexes",  # optional acceleration cache
+}
 
 
 @pytest.fixture
@@ -55,9 +71,12 @@ def canonicalize_outputs(outputs: list[dict]) -> list[dict]:
 class TestGate1MultiTaskPipeline:
     """Gate 1: Multi-task pipeline end-to-end.
 
-    Tests that a complete pipeline with dependencies works.
+    ⚙️ HARNESS - Perimeter infrastructure exists.
+
     Currently tests parse pipeline (Phase 1).
     Phase 2 will extend to: parse -> analyze -> symbols -> lint
+
+    TODO(Phase 2): When all tasks land, this gate must run the full chain.
     """
 
     def test_parse_pipeline_completes(self, clean_store: Path, corpus_dir: Path):
@@ -166,8 +185,10 @@ class TestGate2LogIndependence:
 class TestGate3CacheDeletionEquivalence:
     """Gate 3: Cache deletion equivalence.
 
+    ⏳ PLACEHOLDER - Will be meaningful when indexes/ cache lands.
+
     If indexes/ cache exists, deleting it must not change query results.
-    Phase 1 doesn't have indexes/, so this is a placeholder.
+    Phase 1 doesn't have indexes/, so this tests the invariant with a dummy.
     """
 
     def test_queries_work_without_cache(self, clean_store: Path, corpus_dir: Path):
@@ -318,10 +339,10 @@ class TestGate4RetryDeterminism:
 class TestGate5SpecStability:
     """Gate 5: Spec stability.
 
-    Protected SPEC regions should not change.
-    This is enforced by CI script: scripts/check_spec_protected.py
+    ✅ ENFORCED - SPEC protected regions must not change.
 
-    This test just verifies the markers exist.
+    This is enforced by CI script: scripts/check_spec_protected.py
+    This test verifies the markers exist and baseline is committed.
     """
 
     def test_spec_has_protected_markers(self):
@@ -337,3 +358,128 @@ class TestGate5SpecStability:
         begin_pos = content.find("SPEC_PROTECTED_BEGIN")
         end_pos = content.find("SPEC_PROTECTED_END")
         assert begin_pos < end_pos, "Protected markers in wrong order"
+
+    def test_baseline_hash_committed(self):
+        """Baseline hash file exists for enforcement."""
+        baseline_path = Path(__file__).parent.parent / ".spec_baseline_hash"
+        assert baseline_path.exists(), \
+            ".spec_baseline_hash not found - run: python scripts/check_spec_protected.py --bootstrap"
+
+
+class TestGate6TruthStoreValidation:
+    """Gate 6: Truth store validation.
+
+    ✅ ENFORCED - Runtime verification that store contains no unexpected paths.
+
+    After running a pipeline, the store root should only contain:
+    - store.json
+    - objects/
+    - snapshots/
+    - batches/
+    - indexes/ (optional)
+
+    No other top-level paths are allowed.
+    """
+
+    def test_no_unexpected_store_paths(self, clean_store: Path, corpus_dir: Path):
+        """Running a pipeline creates only allowed paths."""
+        # Setup and run pipeline
+        snapshot_builder = SnapshotBuilder(clean_store)
+        snapshot_id = snapshot_builder.build(corpus_dir)
+
+        batch_manager = BatchManager(clean_store)
+        batch_id = batch_manager.init_batch(snapshot_id, "parse")
+
+        runner = ShardRunner(clean_store)
+        records = snapshot_builder.load_file_index(snapshot_id)
+        shards_with_files = set(object_shard_prefix(r["object"]) for r in records)
+
+        for shard_id in shards_with_files:
+            runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+
+        # Verify only allowed top-level paths exist
+        top_level = {p.name for p in clean_store.iterdir()}
+        unexpected = top_level - ALLOWED_STORE_PATHS
+
+        assert len(unexpected) == 0, \
+            f"Unexpected paths in store root: {unexpected}. " \
+            f"Phase 2 only allows: {ALLOWED_STORE_PATHS}"
+
+    def test_shard_only_writes_allowed_files(self, clean_store: Path, corpus_dir: Path):
+        """Shard directories contain only expected files."""
+        # Setup and run
+        snapshot_builder = SnapshotBuilder(clean_store)
+        snapshot_id = snapshot_builder.build(corpus_dir)
+
+        batch_manager = BatchManager(clean_store)
+        batch_id = batch_manager.init_batch(snapshot_id, "parse")
+
+        runner = ShardRunner(clean_store)
+        records = snapshot_builder.load_file_index(snapshot_id)
+        shards_with_files = list(set(object_shard_prefix(r["object"]) for r in records))[:3]
+
+        for shard_id in shards_with_files:
+            runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+
+        # Allowed files in shard directory
+        allowed_shard_files = {"state.json", "outputs.index.jsonl"}
+
+        # Check each shard directory
+        for shard_id in shards_with_files:
+            shard_dir = clean_store / "batches" / batch_id / "tasks" / "01_parse" / "shards" / shard_id
+            shard_files = {f.name for f in shard_dir.iterdir() if f.is_file()}
+            unexpected = shard_files - allowed_shard_files
+
+            # Allow temp files (they should be cleaned up, but tolerate)
+            unexpected = {f for f in unexpected if not f.endswith(".tmp")}
+
+            assert len(unexpected) == 0, \
+                f"Shard {shard_id} has unexpected files: {unexpected}"
+
+
+class TestGate7DepsEnforcement:
+    """Gate 7: Dependency enforcement.
+
+    ✅ ENFORCED - Tasks cannot run before their dependencies complete.
+    """
+
+    def test_cannot_run_task_before_deps(self, clean_store: Path, corpus_dir: Path):
+        """Running a task before deps raises error."""
+        # Setup
+        snapshot_builder = SnapshotBuilder(clean_store)
+        snapshot_id = snapshot_builder.build(corpus_dir)
+
+        batch_manager = BatchManager(clean_store)
+        batch_id = batch_manager.init_batch(snapshot_id, "analyze")
+
+        runner = ShardRunner(clean_store)
+        records = snapshot_builder.load_file_index(snapshot_id)
+        shard_id = object_shard_prefix(records[0]["object"])
+
+        # Try to run 02_analyze before 01_parse completes
+        # Should raise ValueError about dependencies
+        with pytest.raises(ValueError, match="dependencies not complete"):
+            from codebatch.tasks.analyze import analyze_executor
+            runner.run_shard(batch_id, "02_analyze", shard_id, analyze_executor)
+
+    def test_can_run_task_after_deps(self, clean_store: Path, corpus_dir: Path):
+        """Running a task after deps complete succeeds."""
+        # Setup
+        snapshot_builder = SnapshotBuilder(clean_store)
+        snapshot_id = snapshot_builder.build(corpus_dir)
+
+        batch_manager = BatchManager(clean_store)
+        batch_id = batch_manager.init_batch(snapshot_id, "analyze")
+
+        runner = ShardRunner(clean_store)
+        records = snapshot_builder.load_file_index(snapshot_id)
+        shard_id = object_shard_prefix(records[0]["object"])
+
+        # Run 01_parse first (the dependency)
+        state = runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
+        assert state["status"] == "done"
+
+        # Now 02_analyze should work (it's a stub, but shouldn't error)
+        from codebatch.tasks.analyze import analyze_executor
+        state = runner.run_shard(batch_id, "02_analyze", shard_id, analyze_executor)
+        assert state["status"] == "done"
