@@ -43,6 +43,7 @@ Gate IDs follow a stable naming scheme:
 - **P2-\***: Pipeline/task gates (Phase 2 - tasks, runner, outputs)
 - **P3-\***: Cache gates (Phase 3 - LMDB acceleration)
 - **P5-\***: Workflow gates (Phase 5 - CLI UX, no new truth)
+- **P6-\***: UI/UX gates (Phase 6 - read-only views, comparison)
 - **R-\***: Release gates (strict bundle aliases)
 
 ### Examples
@@ -59,6 +60,11 @@ Gate IDs follow a stable naming scheme:
 | P5-G1                 | No semantic changes (workflow = low-level)     |
 | P5-G2                 | No new truth stores                            |
 | P5-G4                 | Discoverability coverage                       |
+| P6-RO                 | Read-only enforcement (no store writes)        |
+| P6-DIFF               | Diff correctness (pure set math)               |
+| P6-EXPLAIN            | Explain fidelity (accurate data sources)       |
+| P6-HEADLESS           | Headless compatibility (non-TTY works)         |
+| P6-ISOLATION          | UI module isolation (removable without breaks) |
 | R-RELEASE             | All enforced gates for release                 |
 
 Short aliases (e.g., `A1` for `P3-A1`) are supported for convenience.

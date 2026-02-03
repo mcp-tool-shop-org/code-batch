@@ -97,6 +97,27 @@ codebatch files --batch <id> --store ./store
 codebatch top --batch <id> --store ./store
 ```
 
+## Exploration & Comparison (Phase 6)
+
+Phase 6 adds read-only views for exploring outputs and comparing batches—without modifying the store.
+
+```bash
+# Inspect all outputs for a file
+codebatch inspect src/main.py --batch <id> --store ./store
+
+# Compare two batches
+codebatch diff <batchA> <batchB> --store ./store
+
+# Show regressions (new/worsened diagnostics)
+codebatch regressions <batchA> <batchB> --store ./store
+
+# Show improvements (fixed/improved diagnostics)
+codebatch improvements <batchA> <batchB> --store ./store
+
+# Explain data sources for any command
+codebatch inspect src/main.py --batch <id> --store ./store --explain
+```
+
 ## Low-Level Commands
 
 For fine-grained control, the original commands remain available:
