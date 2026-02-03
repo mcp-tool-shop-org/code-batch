@@ -66,7 +66,10 @@ def hello():
 
 
 class TestParseJavaScript:
-    """Tests for JavaScript parsing."""
+    """Tests for JavaScript parsing.
+
+    Tests work with both tree-sitter (full AST) and fallback (token) modes.
+    """
 
     def test_valid_javascript(self):
         """Parse valid JavaScript code."""
@@ -79,19 +82,36 @@ function hello() {
         ast_dict, diagnostics = parse_javascript(code, "test.js")
 
         assert ast_dict is not None
-        assert ast_dict["type"] == "TokenInfo"
-        assert "tokens" in ast_dict
-        assert ast_dict["tokens"]["keyword"] >= 2  # function, const, return
+
+        # Handle both tree-sitter and fallback modes
+        if ast_dict.get("ast_mode") == "full":
+            # Tree-sitter mode - real AST
+            assert ast_dict["type"] == "program"
+            assert ast_dict.get("parser") == "tree-sitter"
+        else:
+            # Fallback mode - tokens
+            assert ast_dict["type"] == "TokenInfo"
+            assert "tokens" in ast_dict
+            assert ast_dict["tokens"]["keyword"] >= 2  # function, const, return
 
     def test_unbalanced_braces(self):
         """Detect unbalanced braces."""
         code = "function hello() { return 42;"
         ast_dict, diagnostics = parse_javascript(code, "test.js")
 
-        assert len(diagnostics) == 1
-        assert diagnostics[0]["severity"] == "warning"
-        assert diagnostics[0]["code"] == "W0001"
-        assert "Unbalanced" in diagnostics[0]["message"]
+        # With tree-sitter, syntax errors are detected via AST
+        # With fallback, brace counting detects the issue
+        if ast_dict.get("ast_mode") == "full":
+            # Tree-sitter detects parse errors
+            assert len(diagnostics) >= 1
+            assert diagnostics[0]["severity"] == "error"
+            assert diagnostics[0]["code"] == "E0002"
+        else:
+            # Fallback brace counting
+            assert len(diagnostics) == 1
+            assert diagnostics[0]["severity"] == "warning"
+            assert diagnostics[0]["code"] == "W0001"
+            assert "Unbalanced" in diagnostics[0]["message"]
 
 
 class TestParseExecutor:

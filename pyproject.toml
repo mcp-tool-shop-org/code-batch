@@ -32,6 +32,14 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
 ]
+treesitter = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-javascript>=0.21.0",
+    "tree-sitter-typescript>=0.21.0",
+]
+all = [
+    "codebatch[dev,treesitter]",
+]
 
 [project.scripts]
 codebatch = "codebatch.cli:main"

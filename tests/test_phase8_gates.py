@@ -16,6 +16,15 @@ import pytest
 from codebatch.tasks.parse import parse_python, parse_javascript
 
 
+def _check_treesitter_available() -> bool:
+    """Check if tree-sitter is available for JS/TS parsing."""
+    try:
+        from codebatch.tasks.parse import is_treesitter_available
+        return is_treesitter_available()
+    except ImportError:
+        return False
+
+
 class TestGateP8Parse:
     """P8-PARSE: Python AST must preserve function and class names."""
 
@@ -557,14 +566,190 @@ class Outer:
 class TestGateP8TreeSitter:
     """P8-TREESITTER: JS/TS must have real AST via tree-sitter.
 
-    These tests will be implemented in Commit 5.
     Gate is optional - skipped if tree-sitter not installed.
     """
 
-    @pytest.mark.skip(reason="Commit 5 - tree-sitter not yet integrated")
-    def test_js_produces_real_ast(self):
+    def test_treesitter_availability_check(self):
+        """is_treesitter_available() must return correct status."""
+        from codebatch.tasks.parse import is_treesitter_available
+        # Just verify the function exists and returns a bool
+        result = is_treesitter_available()
+        assert isinstance(result, bool)
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_js_produces_real_ast_structure(self):
         """JavaScript must produce structural AST, not token counts."""
-        pass
+        from codebatch.tasks.parse import parse_javascript
+
+        js_code = '''
+function fetchData(url) {
+    return fetch(url);
+}
+
+const API_KEY = "secret";
+
+class DataService {
+    constructor(baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    async getData(id) {
+        return await fetch(this.baseUrl + "/" + id);
+    }
+}
+'''.strip()
+
+        ast_dict, diagnostics = parse_javascript(js_code, "test.js")
+
+        # Must NOT be token mode
+        assert ast_dict is not None
+        assert ast_dict.get("ast_mode") == "full", f"Expected full AST, got {ast_dict.get('ast_mode')}"
+        assert ast_dict.get("parser") == "tree-sitter", f"Expected tree-sitter, got {ast_dict.get('parser')}"
+
+        # Must have structural children
+        assert "children" in ast_dict or ast_dict.get("type") == "program"
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_js_function_names_extracted(self):
+        """JavaScript function names must be extracted."""
+        from codebatch.tasks.parse import parse_javascript
+
+        js_code = '''
+function calculateTotal(items) {
+    return items.reduce((sum, item) => sum + item.price, 0);
+}
+'''.strip()
+
+        ast_dict, _ = parse_javascript(js_code, "test.js")
+
+        # Find function declaration with name
+        def find_functions(node):
+            funcs = []
+            if node.get("type") == "function_declaration":
+                if "name" in node:
+                    funcs.append(node["name"])
+            for child in node.get("children", []):
+                funcs.extend(find_functions(child))
+            return funcs
+
+        func_names = find_functions(ast_dict)
+        assert "calculateTotal" in func_names, f"Function 'calculateTotal' not found in {func_names}"
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_js_class_names_extracted(self):
+        """JavaScript class names must be extracted."""
+        from codebatch.tasks.parse import parse_javascript
+
+        js_code = '''
+class ShoppingCart {
+    constructor() {
+        this.items = [];
+    }
+
+    addItem(item) {
+        this.items.push(item);
+    }
+}
+'''.strip()
+
+        ast_dict, _ = parse_javascript(js_code, "test.js")
+
+        # Find class declaration with name
+        def find_classes(node):
+            classes = []
+            if node.get("type") == "class_declaration":
+                if "name" in node:
+                    classes.append(node["name"])
+            for child in node.get("children", []):
+                classes.extend(find_classes(child))
+            return classes
+
+        class_names = find_classes(ast_dict)
+        assert "ShoppingCart" in class_names, f"Class 'ShoppingCart' not found in {class_names}"
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_typescript_produces_real_ast(self):
+        """TypeScript must produce structural AST."""
+        from codebatch.tasks.parse import parse_javascript
+
+        ts_code = '''
+interface User {
+    id: number;
+    name: string;
+}
+
+function greetUser(user: User): string {
+    return `Hello, ${user.name}!`;
+}
+
+const users: User[] = [];
+'''.strip()
+
+        ast_dict, _ = parse_javascript(ts_code, "test.ts")
+
+        # Must be full AST
+        assert ast_dict is not None
+        assert ast_dict.get("ast_mode") == "full"
+        assert ast_dict.get("parser") == "tree-sitter"
+
+    @pytest.mark.skipif(
+        not _check_treesitter_available(),
+        reason="tree-sitter not installed"
+    )
+    def test_js_import_extraction(self):
+        """JavaScript imports must be extracted."""
+        from codebatch.tasks.parse import parse_javascript
+
+        js_code = '''
+import React from 'react';
+import { useState, useEffect } from 'react';
+import * as utils from './utils';
+'''.strip()
+
+        ast_dict, _ = parse_javascript(js_code, "test.js")
+
+        # Find import statements
+        def find_imports(node):
+            imports = []
+            if node.get("type") == "import_statement":
+                if "source" in node:
+                    imports.append(node["source"])
+            for child in node.get("children", []):
+                imports.extend(find_imports(child))
+            return imports
+
+        import_sources = find_imports(ast_dict)
+        assert "react" in import_sources, f"Import 'react' not found in {import_sources}"
+
+    def test_fallback_when_treesitter_unavailable(self):
+        """Fallback tokenization must work when tree-sitter not available."""
+        from codebatch.tasks.parse import parse_javascript_fallback
+
+        js_code = '''
+function test() {
+    return 42;
+}
+'''.strip()
+
+        ast_dict, _ = parse_javascript_fallback(js_code, "test.js")
+
+        # Must be token mode
+        assert ast_dict is not None
+        assert ast_dict.get("ast_mode") == "tokens"
+        assert ast_dict.get("parser") == "regex-fallback"
+        assert "tokens" in ast_dict
 
 
 class TestGateP8LintAst:

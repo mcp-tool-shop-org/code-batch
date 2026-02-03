@@ -2,7 +2,7 @@
 
 Supports:
 - Python (via ast module) - Full AST with names preserved
-- JavaScript/TypeScript (simple tokenization, tree-sitter optional)
+- JavaScript/TypeScript (tree-sitter for full AST, regex fallback)
 - Text files (line-based tokenization)
 
 Emits:
@@ -12,6 +12,7 @@ Emits:
 Enforces chunking threshold (default 16MB) with chunk manifest objects.
 
 Phase 8: Full Python AST with function/class/variable names preserved.
+         Tree-sitter for JS/TS when available.
 """
 
 import ast
@@ -21,6 +22,29 @@ from typing import Any, Iterable, Optional
 
 from ..common import SCHEMA_VERSION, PRODUCER
 from ..runner import ShardRunner
+
+
+# Tree-sitter imports (optional)
+_TREE_SITTER_AVAILABLE = False
+_ts_js_language = None
+_ts_ts_language = None
+_ts_tsx_language = None
+
+try:
+    import tree_sitter_javascript as ts_js
+    import tree_sitter_typescript as ts_ts
+    from tree_sitter import Language, Parser
+    _TREE_SITTER_AVAILABLE = True
+    _ts_js_language = Language(ts_js.language())
+    _ts_ts_language = Language(ts_ts.language_typescript())
+    _ts_tsx_language = Language(ts_ts.language_tsx())
+except ImportError:
+    pass
+
+
+def is_treesitter_available() -> bool:
+    """Check if tree-sitter is available for JS/TS parsing."""
+    return _TREE_SITTER_AVAILABLE
 
 
 # Default chunk size: 16MB
@@ -250,11 +274,140 @@ def parse_python(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
         return None, diagnostics
 
 
-def parse_javascript(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
-    """Simple JavaScript/TypeScript tokenization.
+def _ts_node_to_dict(node, source_bytes: bytes, depth: int = 0, max_depth: int = 50) -> dict:
+    """Convert a tree-sitter node to dictionary with full fidelity.
+
+    Args:
+        node: Tree-sitter Node object.
+        source_bytes: Original source code as bytes.
+        depth: Current recursion depth.
+        max_depth: Maximum recursion depth.
+
+    Returns:
+        Dictionary representation of the node.
+    """
+    if depth > max_depth:
+        return {"type": node.type, "truncated": True}
+
+    result: dict[str, Any] = {"type": node.type}
+
+    # Add location info
+    result["start_point"] = {"row": node.start_point[0], "column": node.start_point[1]}
+    result["end_point"] = {"row": node.end_point[0], "column": node.end_point[1]}
+
+    # Extract name for named constructs
+    # Common patterns: function name is identifier child, class name is identifier child
+    if node.type in (
+        "function_declaration", "method_definition", "class_declaration",
+        "variable_declarator", "lexical_declaration", "function_expression",
+        "arrow_function", "export_statement", "import_statement",
+    ):
+        # Look for identifier or property_identifier children
+        for child in node.children:
+            if child.type == "identifier":
+                result["name"] = source_bytes[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+                break
+            if child.type == "property_identifier":
+                result["name"] = source_bytes[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+                break
+
+    # For identifiers, capture the actual name
+    if node.type in ("identifier", "property_identifier", "type_identifier"):
+        result["name"] = source_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+
+    # For import/export, capture source
+    if node.type == "import_statement":
+        for child in node.children:
+            if child.type == "string":
+                text = source_bytes[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+                result["source"] = text.strip("'\"")
+                break
+
+    # For string/number literals, capture value
+    if node.type in ("string", "number", "template_string"):
+        result["value"] = source_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+
+    # Recurse into children for structural nodes
+    if node.child_count > 0 and node.type not in ("comment", "string", "number", "template_string"):
+        children = []
+        for child in node.children:
+            # Skip comments for cleaner AST
+            if child.type not in ("comment", ):
+                children.append(_ts_node_to_dict(child, source_bytes, depth + 1, max_depth))
+        if children:
+            result["children"] = children
+
+    return result
+
+
+def parse_javascript_treesitter(content: str, path: str, is_typescript: bool = False) -> tuple[Optional[dict], list[dict]]:
+    """Parse JavaScript/TypeScript using tree-sitter.
+
+    Args:
+        content: JS/TS source code.
+        path: File path.
+        is_typescript: Whether to use TypeScript grammar.
+
+    Returns:
+        Tuple of (AST dict or None, list of diagnostics).
+    """
+    diagnostics = []
+    source_bytes = content.encode("utf-8")
+
+    # Select language
+    if is_typescript:
+        if path.endswith(".tsx"):
+            language = _ts_tsx_language
+        else:
+            language = _ts_ts_language
+    else:
+        language = _ts_js_language
+
+    from tree_sitter import Parser
+    parser = Parser(language)
+    tree = parser.parse(source_bytes)
+
+    # Check for parse errors
+    if tree.root_node.has_error:
+        # Find error nodes
+        def find_errors(node):
+            errors = []
+            if node.type == "ERROR" or node.is_missing:
+                errors.append({
+                    "severity": "error",
+                    "code": "E0002",
+                    "message": f"Parse error at {node.type}",
+                    "line": node.start_point[0] + 1,
+                    "column": node.start_point[1] + 1,
+                })
+            for child in node.children:
+                errors.extend(find_errors(child))
+            return errors
+        diagnostics.extend(find_errors(tree.root_node))
+
+    # Convert to dict
+    ast_dict = _ts_node_to_dict(tree.root_node, source_bytes)
+    ast_dict["ast_mode"] = "full"  # Full AST from tree-sitter
+    ast_dict["parser"] = "tree-sitter"
+    ast_dict["stats"] = {
+        "total_nodes": _count_ts_nodes(tree.root_node),
+    }
+
+    return ast_dict, diagnostics
+
+
+def _count_ts_nodes(node) -> int:
+    """Count total nodes in tree-sitter tree."""
+    count = 1
+    for child in node.children:
+        count += _count_ts_nodes(child)
+    return count
+
+
+def parse_javascript_fallback(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
+    """Fallback JavaScript/TypeScript tokenization when tree-sitter unavailable.
 
     This is a basic tokenizer, not a full parser.
-    For Phase 1, we just identify tokens and structure.
 
     Args:
         content: JS/TS source code.
@@ -299,6 +452,7 @@ def parse_javascript(content: str, path: str) -> tuple[Optional[dict], list[dict
     ast_dict = {
         "type": "TokenInfo",
         "ast_mode": "tokens",
+        "parser": "regex-fallback",
         "tokens": token_counts,
         "stats": {
             "lines": content.count('\n') + 1,
@@ -307,6 +461,26 @@ def parse_javascript(content: str, path: str) -> tuple[Optional[dict], list[dict
     }
 
     return ast_dict, diagnostics
+
+
+def parse_javascript(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
+    """Parse JavaScript/TypeScript source code.
+
+    Uses tree-sitter for full AST when available, falls back to
+    simple tokenization otherwise.
+
+    Args:
+        content: JS/TS source code.
+        path: File path.
+
+    Returns:
+        Tuple of (AST/token info dict or None, list of diagnostics).
+    """
+    if _TREE_SITTER_AVAILABLE:
+        is_ts = path.endswith((".ts", ".tsx"))
+        return parse_javascript_treesitter(content, path, is_typescript=is_ts)
+    else:
+        return parse_javascript_fallback(content, path)
 
 
 def parse_text(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
