@@ -22,9 +22,9 @@ class TestObjectStore:
         data = b"Hello, World!"
         object_ref = store.put_bytes(data)
 
-        # Verify the hash is correct
+        # Verify the hash is correct and uses sha256: prefix
         expected_hash = hashlib.sha256(data).hexdigest()
-        assert object_ref == expected_hash
+        assert object_ref == f"sha256:{expected_hash}"
 
         # Verify we can get it back
         retrieved = store.get_bytes(object_ref)
@@ -48,12 +48,12 @@ class TestObjectStore:
 
     def test_has_returns_false_for_missing(self, store: ObjectStore):
         """Test has() returns False for missing objects."""
-        fake_ref = "a" * 64
+        fake_ref = "sha256:" + "a" * 64
         assert store.has(fake_ref) is False
 
     def test_get_missing_object_raises(self, store: ObjectStore):
         """Test get_bytes raises ObjectNotFoundError for missing objects."""
-        fake_ref = "b" * 64
+        fake_ref = "sha256:" + "b" * 64
 
         with pytest.raises(ObjectNotFoundError) as exc_info:
             store.get_bytes(fake_ref)
@@ -65,10 +65,11 @@ class TestObjectStore:
         data = b"Sharding test"
         object_ref = store.put_bytes(data)
 
-        # Verify directory structure
-        aa = object_ref[:2]
-        bb = object_ref[2:4]
-        expected_path = store.objects_dir / aa / bb / object_ref
+        # Verify directory structure - extract hex hash from sha256:<hex>
+        hex_hash = object_ref.split(":")[1]
+        aa = hex_hash[:2]
+        bb = hex_hash[2:4]
+        expected_path = store.objects_dir / aa / bb / hex_hash
 
         assert expected_path.exists()
 
@@ -78,7 +79,7 @@ class TestObjectStore:
         object_ref = store.put_bytes(data)
 
         # SHA-256 of empty string is well-known
-        expected = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        expected = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         assert object_ref == expected
         assert store.get_bytes(object_ref) == data
 
@@ -110,5 +111,5 @@ class TestObjectStore:
 
     def test_get_path_returns_none_for_missing(self, store: ObjectStore):
         """Test get_path returns None for missing objects."""
-        fake_ref = "c" * 64
+        fake_ref = "sha256:" + "c" * 64
         assert store.get_path(fake_ref) is None

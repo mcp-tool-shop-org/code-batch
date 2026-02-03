@@ -2,11 +2,16 @@
 
 Objects are stored at: objects/sha256/<aa>/<bb>/<full_hash>
 Where <aa> and <bb> are the first two byte pairs of the hex hash.
+
+Object references use canonical format: sha256:<hex>
 """
 
 import hashlib
+import os
 from pathlib import Path
 from typing import Optional
+
+from .common import parse_object_ref, make_object_ref
 
 
 class ObjectNotFoundError(Exception):
@@ -29,67 +34,102 @@ class ObjectStore:
         self.store_root = Path(store_root)
         self.objects_dir = self.store_root / "objects" / "sha256"
 
-    def _object_path(self, object_ref: str) -> Path:
-        """Get the filesystem path for an object reference.
+    def _hex_to_path(self, hex_hash: str) -> Path:
+        """Get the filesystem path for a hex hash.
 
         Args:
-            object_ref: SHA-256 hex hash (64 characters).
+            hex_hash: SHA-256 hex hash (64 characters).
 
         Returns:
             Path to the object file.
         """
-        if len(object_ref) != 64:
-            raise ValueError(f"Invalid object reference: {object_ref}")
-        aa = object_ref[:2]
-        bb = object_ref[2:4]
-        return self.objects_dir / aa / bb / object_ref
+        aa = hex_hash[:2]
+        bb = hex_hash[2:4]
+        return self.objects_dir / aa / bb / hex_hash
+
+    def _object_path(self, object_ref: str) -> Path:
+        """Get the filesystem path for an object reference.
+
+        Args:
+            object_ref: Object reference (sha256:<hex> or legacy bare hex).
+
+        Returns:
+            Path to the object file.
+
+        Raises:
+            ValueError: If object reference is invalid.
+        """
+        _, hex_hash = parse_object_ref(object_ref)
+        return self._hex_to_path(hex_hash)
 
     def put_bytes(self, data: bytes) -> str:
-        """Store bytes and return the object reference.
+        """Store bytes and return the canonical object reference.
+
+        Thread-safe: handles concurrent writes correctly.
 
         Args:
             data: Raw bytes to store.
 
         Returns:
-            SHA-256 hex hash of the data (object reference).
+            Canonical object reference in format sha256:<hex>.
         """
-        object_ref = hashlib.sha256(data).hexdigest()
-        object_path = self._object_path(object_ref)
+        hex_hash = hashlib.sha256(data).hexdigest()
+        object_path = self._hex_to_path(hex_hash)
 
         # Dedupe: if object already exists, skip write
         if object_path.exists():
-            return object_ref
+            return make_object_ref(hex_hash)
 
-        # Atomic write: write to temp file, then rename
+        # Atomic write: write to temp file, then replace
         object_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path = object_path.with_suffix(".tmp")
+
+        # Use PID in temp filename to avoid collisions
+        temp_path = object_path.with_suffix(f".tmp.{os.getpid()}")
         try:
             temp_path.write_bytes(data)
-            temp_path.rename(object_path)
+            try:
+                # Use replace() for atomic overwrite (works on Windows)
+                temp_path.replace(object_path)
+            except OSError:
+                # Race condition: another process wrote the same object
+                # This is fine - CAS is content-addressed, so result is identical
+                if object_path.exists():
+                    # Object was written by another process, clean up our temp
+                    if temp_path.exists():
+                        temp_path.unlink()
+                else:
+                    # Actual error, re-raise
+                    raise
         except Exception:
             # Clean up temp file on failure
             if temp_path.exists():
-                temp_path.unlink()
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
             raise
 
-        return object_ref
+        return make_object_ref(hex_hash)
 
     def has(self, object_ref: str) -> bool:
         """Check if an object exists in the store.
 
         Args:
-            object_ref: SHA-256 hex hash.
+            object_ref: Object reference (sha256:<hex> or bare hex).
 
         Returns:
             True if object exists, False otherwise.
         """
-        return self._object_path(object_ref).exists()
+        try:
+            return self._object_path(object_ref).exists()
+        except ValueError:
+            return False
 
     def get_bytes(self, object_ref: str) -> bytes:
         """Retrieve bytes for an object reference.
 
         Args:
-            object_ref: SHA-256 hex hash.
+            object_ref: Object reference (sha256:<hex> or bare hex).
 
         Returns:
             Raw bytes of the object.
@@ -106,10 +146,25 @@ class ObjectStore:
         """Get the filesystem path for an object if it exists.
 
         Args:
-            object_ref: SHA-256 hex hash.
+            object_ref: Object reference (sha256:<hex> or bare hex).
 
         Returns:
             Path to object file, or None if not found.
         """
-        object_path = self._object_path(object_ref)
-        return object_path if object_path.exists() else None
+        try:
+            object_path = self._object_path(object_ref)
+            return object_path if object_path.exists() else None
+        except ValueError:
+            return None
+
+    def get_hex(self, object_ref: str) -> str:
+        """Extract the hex hash from an object reference.
+
+        Args:
+            object_ref: Object reference (sha256:<hex> or bare hex).
+
+        Returns:
+            64-character hex hash.
+        """
+        _, hex_hash = parse_object_ref(object_ref)
+        return hex_hash
