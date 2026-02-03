@@ -249,6 +249,14 @@ def gate_p3_a1(ctx: GateContext) -> GateResult:
                     expected=f"{len(scan_canon)} outputs",
                     actual=f"{len(cache_canon)} outputs",
                 )
+                # Write comparison artifact for debugging
+                ctx.write_artifact_json("P3-A1", f"mismatch_{task_id}.json", {
+                    "task_id": task_id,
+                    "scan_count": len(scan_canon),
+                    "cache_count": len(cache_canon),
+                    "scan_outputs": scan_canon[:10],  # First 10
+                    "cache_outputs": cache_canon[:10],
+                })
 
         result.details = {
             "tasks_checked": len(task_ids),
