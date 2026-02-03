@@ -1,0 +1,3 @@
+This file has Chinese characters in its filename.
+路径 means "path" in Chinese.
+Testing UTF-8 filename handling.

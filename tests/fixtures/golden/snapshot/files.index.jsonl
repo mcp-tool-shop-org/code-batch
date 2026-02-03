@@ -1,0 +1,6 @@
+{"schema_version":"1.0","path":"binary.bin","path_key":"binary.bin","object":"403b082bc2c9237ec4ccdccf805744f027412b0d34a431e26536ffe8bffc50c5","size":24}
+{"schema_version":"1.0","path":"crlf_example.txt","path_key":"crlf_example.txt","object":"58807c25f42afbd8a84f396940401f0623ddb52a9e241605c733a47065c49924","size":61}
+{"schema_version":"1.0","path":"emoji_🎉.md","path_key":"emoji_🎉.md","object":"08fee2f47415b7e45aa5d9dc51521ed1e5838575019bb2e9c9896879530ffbc5","size":91}
+{"schema_version":"1.0","path":"empty.txt","path_key":"empty.txt","object":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","size":0}
+{"schema_version":"1.0","path":"hello.py","path_key":"hello.py","object":"1ac0ddd869e19031f88f3343965017b82d08f87142903d6d4ac02db9f1b04931","size":208,"lang_hint":"python"}
+{"schema_version":"1.0","path":"unicode_路径.txt","path_key":"unicode_路径.txt","object":"4a7c009259b302f009d7a31624deafd16b418b8c4d05eeb7a176ffc64c65d293","size":115}

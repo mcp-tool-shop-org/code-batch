@@ -1,0 +1,15 @@
+{
+  "schema_name": "codebatch.snapshot",
+  "schema_version": "1.0",
+  "snapshot_id": "corpus-golden-001",
+  "created_at": "2025-02-02T00:00:00Z",
+  "source": {
+    "type": "directory",
+    "path": "tests/fixtures/corpus"
+  },
+  "file_count": 6,
+  "total_bytes": 499,
+  "metadata": {
+    "description": "Golden snapshot of test corpus for validation"
+  }
+}

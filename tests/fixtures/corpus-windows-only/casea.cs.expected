@@ -1,0 +1,12 @@
+// casea.cs - lowercase variant
+// This file is stored with .expected suffix because Windows cannot have both
+// CaseA.cs and casea.cs in the same directory.
+//
+// On case-sensitive systems, rename this to casea.cs to test collision detection.
+namespace Test
+{
+    public class casea
+    {
+        public void Method() { }
+    }
+}
