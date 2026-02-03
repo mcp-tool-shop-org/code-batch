@@ -9,6 +9,7 @@ CodeBatch provides a filesystem-based execution substrate for running determinis
 ## Documentation
 
 - **[SPEC.md](./SPEC.md)** — Full storage and execution specification
+- **[docs/TASKS.md](./docs/TASKS.md)** — Task reference (parse, analyze, symbols, lint)
 - **[CHANGELOG.md](./CHANGELOG.md)** — Version history
 
 ## Spec Versioning

@@ -1,6 +1,6 @@
 # Phase 8 Charter: Real Workloads
 
-**Status**: In Progress
+**Status**: Complete
 **Goal**: Replace stub logic with real implementations to make the engine actually useful
 
 ## Overview
@@ -300,13 +300,13 @@ def complex_function(x):
 
 Phase 8 is **done** when:
 
-- [ ] Python AST includes real function/class/variable names
-- [ ] Symbol extraction produces actual identifiers (not `function_<lineno>`)
-- [ ] JS/TS has real parsing via tree-sitter (optional dependency)
-- [ ] At least 3 AST-aware lint rules work
-- [ ] Analyze produces cyclomatic complexity metric
-- [ ] Self-test: running on codebatch source produces meaningful results
-- [ ] All P8 gates pass (except P8-TREESITTER if tree-sitter not installed)
+- [x] Python AST includes real function/class/variable names
+- [x] Symbol extraction produces actual identifiers (not `function_<lineno>`)
+- [x] JS/TS has real parsing via tree-sitter (optional dependency)
+- [x] At least 3 AST-aware lint rules work
+- [x] Analyze produces cyclomatic complexity metric
+- [x] Self-test: running on codebatch source produces meaningful results
+- [x] All P8 gates pass (except P8-TREESITTER if tree-sitter not installed)
 
 ---
 
