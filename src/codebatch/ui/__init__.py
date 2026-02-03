@@ -38,6 +38,18 @@ from .pager import (
     paginate_lines,
     format_pagination_info,
 )
+from .diff import (
+    DiffResult,
+    DiagnosticDelta,
+    diff_sets,
+    diff_batches,
+    diff_diagnostics,
+    load_batch_outputs,
+    normalize_output,
+    make_output_key,
+    is_regression,
+    is_improvement,
+)
 
 __all__ = [
     # Format - core rendering
@@ -61,4 +73,15 @@ __all__ = [
     "should_paginate",
     "paginate_lines",
     "format_pagination_info",
+    # Diff engine
+    "DiffResult",
+    "DiagnosticDelta",
+    "diff_sets",
+    "diff_batches",
+    "diff_diagnostics",
+    "load_batch_outputs",
+    "normalize_output",
+    "make_output_key",
+    "is_regression",
+    "is_improvement",
 ]
