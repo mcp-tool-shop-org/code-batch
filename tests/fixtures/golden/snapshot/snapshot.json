@@ -1,6 +1,10 @@
 {
   "schema_name": "codebatch.snapshot",
-  "schema_version": "1.0",
+  "schema_version": 1,
+  "producer": {
+    "name": "codebatch",
+    "version": "0.1.0"
+  },
   "snapshot_id": "corpus-golden-001",
   "created_at": "2025-02-02T00:00:00Z",
   "source": {

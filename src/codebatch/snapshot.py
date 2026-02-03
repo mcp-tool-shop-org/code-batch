@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Iterator, Optional
 
 from .cas import ObjectStore
-from .paths import canonicalize_path, compute_path_key, PathEscapeError, InvalidPathError
+from .common import SCHEMA_VERSION, PRODUCER, utc_now_z, SnapshotExistsError, object_shard_prefix
+from .paths import canonicalize_path, compute_path_key, PathEscapeError, InvalidPathError, detect_case_collision
 
 
 # Language detection by extension
@@ -84,8 +85,6 @@ def generate_snapshot_id() -> str:
 class SnapshotBuilder:
     """Builds immutable snapshots from directory sources."""
 
-    SCHEMA_VERSION = "1.0"
-
     def __init__(self, store_root: Path):
         """Initialize the snapshot builder.
 
@@ -96,13 +95,16 @@ class SnapshotBuilder:
         self.object_store = ObjectStore(store_root)
         self.snapshots_dir = self.store_root / "snapshots"
 
-    def _walk_directory(self, source_dir: Path) -> Iterator[tuple[Path, str]]:
+    def _walk_directory(
+        self,
+        source_dir: Path,
+        include_hidden: bool = False,
+    ) -> Iterator[tuple[Path, str]]:
         """Walk a directory and yield (file_path, relative_path) pairs.
-
-        Skips hidden files and directories (starting with .).
 
         Args:
             source_dir: Directory to walk.
+            include_hidden: If True, include hidden files/dirs.
 
         Yields:
             Tuples of (absolute_path, relative_path).
@@ -110,13 +112,14 @@ class SnapshotBuilder:
         source_dir = source_dir.resolve()
 
         for root, dirs, files in os.walk(source_dir):
-            # Skip hidden directories
-            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            if not include_hidden:
+                # Skip hidden directories
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
 
             root_path = Path(root)
             for file in files:
-                # Skip hidden files
-                if file.startswith("."):
+                # Skip hidden files unless configured
+                if not include_hidden and file.startswith("."):
                     continue
 
                 file_path = root_path / file
@@ -132,6 +135,8 @@ class SnapshotBuilder:
         source_dir: Path,
         snapshot_id: Optional[str] = None,
         metadata: Optional[dict] = None,
+        include_hidden: bool = False,
+        allow_overwrite: bool = False,
     ) -> str:
         """Build a snapshot from a directory.
 
@@ -139,9 +144,15 @@ class SnapshotBuilder:
             source_dir: Directory to snapshot.
             snapshot_id: Optional snapshot ID (auto-generated if not provided).
             metadata: Optional user metadata to include.
+            include_hidden: If True, include hidden files/dirs.
+            allow_overwrite: If True, allow overwriting existing snapshot (default False).
 
         Returns:
             The snapshot ID.
+
+        Raises:
+            SnapshotExistsError: If snapshot already exists and allow_overwrite=False.
+            ValueError: If source is not a directory.
         """
         source_dir = Path(source_dir).resolve()
 
@@ -151,15 +162,21 @@ class SnapshotBuilder:
         if snapshot_id is None:
             snapshot_id = generate_snapshot_id()
 
-        # Create snapshot directory
+        # Check for existing snapshot (immutability enforcement)
+        # Fail if directory exists at all - even empty dirs indicate a prior attempt
         snapshot_dir = self.snapshots_dir / snapshot_id
+        if snapshot_dir.exists() and not allow_overwrite:
+            raise SnapshotExistsError(snapshot_id)
+
+        # Create snapshot directory
         snapshot_dir.mkdir(parents=True, exist_ok=True)
 
-        # Collect file records
+        # Collect file records and track diagnostics
         file_records = []
+        skipped_files = []
         total_bytes = 0
 
-        for file_path, rel_path in self._walk_directory(source_dir):
+        for file_path, rel_path in self._walk_directory(source_dir, include_hidden):
             try:
                 # Canonicalize path
                 canonical_path = canonicalize_path(rel_path)
@@ -173,7 +190,7 @@ class SnapshotBuilder:
 
                 # Build record
                 record = {
-                    "schema_version": self.SCHEMA_VERSION,
+                    "schema_version": SCHEMA_VERSION,
                     "path": canonical_path,
                     "path_key": path_key,
                     "object": object_ref,
@@ -188,11 +205,28 @@ class SnapshotBuilder:
                 file_records.append(record)
 
             except (PathEscapeError, InvalidPathError) as e:
-                # Skip invalid paths with a warning (could log this)
-                continue
-            except OSError:
-                # Skip unreadable files
-                continue
+                skipped_files.append({
+                    "path": rel_path,
+                    "reason": "invalid_path",
+                    "message": str(e),
+                })
+            except OSError as e:
+                skipped_files.append({
+                    "path": rel_path,
+                    "reason": "unreadable",
+                    "message": str(e),
+                })
+
+        # Detect case collisions
+        all_paths = [r["path"] for r in file_records]
+        case_collisions = detect_case_collision(all_paths)
+        collision_warnings = []
+        for p1, p2 in case_collisions:
+            collision_warnings.append({
+                "paths": [p1, p2],
+                "reason": "case_collision",
+                "message": f"Paths differ only by case: {p1} vs {p2}",
+            })
 
         # Sort records by path_key for deterministic output
         file_records.sort(key=lambda r: r["path_key"])
@@ -207,19 +241,29 @@ class SnapshotBuilder:
         # Write snapshot.json
         snapshot_meta = {
             "schema_name": "codebatch.snapshot",
-            "schema_version": self.SCHEMA_VERSION,
+            "schema_version": SCHEMA_VERSION,
+            "producer": PRODUCER,
             "snapshot_id": snapshot_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": utc_now_z(),
             "source": {
                 "type": "directory",
                 "path": str(source_dir),
             },
             "file_count": len(file_records),
             "total_bytes": total_bytes,
+            "config": {
+                "include_hidden": include_hidden,
+            },
         }
 
         if metadata:
             snapshot_meta["metadata"] = metadata
+
+        # Add warnings if any
+        if skipped_files or collision_warnings:
+            snapshot_meta["warnings"] = []
+            snapshot_meta["warnings"].extend(skipped_files)
+            snapshot_meta["warnings"].extend(collision_warnings)
 
         snapshot_json_path = snapshot_dir / "snapshot.json"
         with open(snapshot_json_path, "w", encoding="utf-8") as f:
@@ -263,6 +307,22 @@ class SnapshotBuilder:
                 if line:
                     records.append(json.loads(line))
         return records
+
+    def iter_file_index(self, snapshot_id: str) -> Iterator[dict]:
+        """Stream file index records without loading all into memory.
+
+        Args:
+            snapshot_id: Snapshot ID.
+
+        Yields:
+            File index record dicts.
+        """
+        index_path = self.snapshots_dir / snapshot_id / "files.index.jsonl"
+        with open(index_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    yield json.loads(line)
 
     def list_snapshots(self) -> list[str]:
         """List all snapshot IDs.
