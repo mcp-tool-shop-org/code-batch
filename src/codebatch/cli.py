@@ -349,7 +349,14 @@ def main(argv: list[str] = None) -> int:
     inspect_parser.add_argument("--kinds", help="Filter by output kinds (comma-separated)")
     inspect_parser.add_argument("--json", action="store_true", help="Output as JSON")
     inspect_parser.add_argument("--no-color", action="store_true", help="Disable colored output")
+    inspect_parser.add_argument("--explain", action="store_true", help="Show data sources instead of data")
     inspect_parser.set_defaults(func=cmd_inspect)
+
+    # explain command - show data sources for a view
+    explain_parser = subparsers.add_parser("explain", help="Show data sources for a command")
+    explain_parser.add_argument("subcommand", help="Command to explain (e.g., 'inspect', 'diff')")
+    explain_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    explain_parser.set_defaults(func=cmd_explain)
 
     args = parser.parse_args(argv)
 
@@ -1333,6 +1340,17 @@ def cmd_inspect(args: argparse.Namespace) -> int:
     Shows all outputs for a specific file path, grouped by kind/task.
     Read-only: does not modify the store.
     """
+    from .ui import ColorMode, render_json
+
+    # Handle --explain mode
+    if getattr(args, "explain", False):
+        explanation = get_explain_info("inspect")
+        if args.json:
+            print(render_json(explanation))
+        else:
+            print_explain(explanation)
+        return 0
+
     store_root = Path(args.store)
 
     if not store_root.exists():
@@ -1340,7 +1358,7 @@ def cmd_inspect(args: argparse.Namespace) -> int:
         return 1
 
     # Determine color mode
-    from .ui import ColorMode, render_table, render_json, Column
+    from .ui import render_table, Column
     color_mode = ColorMode.NEVER if args.no_color else ColorMode.AUTO
 
     engine = QueryEngine(store_root)
@@ -1450,6 +1468,161 @@ def cmd_inspect(args: argparse.Namespace) -> int:
                 print(render_table(outputs, columns, sort_key=sort_key, color_mode=color_mode))
 
             print()
+
+    return 0
+
+
+# --- Explain system ---
+
+# Command metadata for explain functionality
+_COMMAND_EXPLAIN_INFO = {
+    "inspect": {
+        "description": "Show all outputs for a specific file path",
+        "data_sources": [
+            "outputs.index.jsonl (per shard)",
+        ],
+        "output_kinds_used": ["diagnostic", "metric", "symbol", "ast"],
+        "tasks_referenced": "all tasks in batch plan",
+        "filters": ["path (exact match)", "kinds (optional)"],
+        "grouping": "by output kind",
+        "notes": [
+            "Reads from batch outputs only",
+            "Does NOT use events",
+            "Does NOT modify the store",
+        ],
+    },
+    "diff": {
+        "description": "Compare outputs between two batches",
+        "data_sources": [
+            "outputs.index.jsonl (per shard, both batches)",
+        ],
+        "output_kinds_used": ["diagnostic", "metric", "symbol"],
+        "tasks_referenced": "all tasks in both batch plans",
+        "filters": ["kind (optional)"],
+        "grouping": "by change type (added/removed/changed)",
+        "notes": [
+            "Pure set math on output records",
+            "Does NOT use events",
+            "Does NOT modify the store",
+        ],
+    },
+    "regressions": {
+        "description": "Show diagnostics that worsened between batches",
+        "data_sources": [
+            "outputs.index.jsonl (diagnostics only)",
+        ],
+        "output_kinds_used": ["diagnostic"],
+        "tasks_referenced": "all tasks in both batch plans",
+        "filters": ["severity comparison"],
+        "grouping": "by file path",
+        "notes": [
+            "Regression = diagnostic added or severity increased",
+            "Does NOT use events",
+            "Does NOT modify the store",
+        ],
+    },
+    "improvements": {
+        "description": "Show diagnostics that improved between batches",
+        "data_sources": [
+            "outputs.index.jsonl (diagnostics only)",
+        ],
+        "output_kinds_used": ["diagnostic"],
+        "tasks_referenced": "all tasks in both batch plans",
+        "filters": ["severity comparison"],
+        "grouping": "by file path",
+        "notes": [
+            "Improvement = diagnostic removed or severity decreased",
+            "Does NOT use events",
+            "Does NOT modify the store",
+        ],
+    },
+    "summary": {
+        "description": "Show human summary of batch outputs",
+        "data_sources": [
+            "outputs.index.jsonl (per shard)",
+        ],
+        "output_kinds_used": ["diagnostic", "metric", "symbol"],
+        "tasks_referenced": "all tasks (or filtered by --task)",
+        "filters": ["task (optional)"],
+        "grouping": "by output kind",
+        "notes": [
+            "Aggregates counts by kind",
+            "Does NOT use events",
+            "Does NOT modify the store",
+        ],
+    },
+}
+
+
+def get_explain_info(command: str) -> dict:
+    """Get explain information for a command.
+
+    Args:
+        command: Command name (e.g., 'inspect', 'diff').
+
+    Returns:
+        Dict with explain information.
+    """
+    if command in _COMMAND_EXPLAIN_INFO:
+        info = _COMMAND_EXPLAIN_INFO[command].copy()
+        info["command"] = command
+        return info
+
+    return {
+        "command": command,
+        "description": f"Unknown command: {command}",
+        "data_sources": [],
+        "output_kinds_used": [],
+        "tasks_referenced": "unknown",
+        "filters": [],
+        "grouping": "unknown",
+        "notes": [],
+    }
+
+
+def print_explain(info: dict) -> None:
+    """Print explain information in human-readable format.
+
+    Args:
+        info: Explain info dict.
+    """
+    print(f"Command: {info['command']}")
+    print(f"Description: {info['description']}")
+    print()
+    print("Data Sources:")
+    for src in info.get("data_sources", []):
+        print(f"  - {src}")
+    print()
+    print("Output Kinds Used:")
+    for kind in info.get("output_kinds_used", []):
+        print(f"  - {kind}")
+    print()
+    print(f"Tasks Referenced: {info.get('tasks_referenced', 'unknown')}")
+    print()
+    print("Filters/Parameters:")
+    for f in info.get("filters", []):
+        print(f"  - {f}")
+    print()
+    print(f"Grouping: {info.get('grouping', 'none')}")
+    print()
+    print("Notes:")
+    for note in info.get("notes", []):
+        print(f"  - {note}")
+
+
+def cmd_explain(args: argparse.Namespace) -> int:
+    """Handle the explain command (Phase 6).
+
+    Shows data sources and processing logic for a command.
+    """
+    from .ui import render_json
+
+    info = get_explain_info(args.subcommand)
+
+    if args.json:
+        print(render_json(info))
+    else:
+        print_explain(info)
 
     return 0
 
