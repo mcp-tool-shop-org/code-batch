@@ -101,14 +101,14 @@ class TestQueryEngine:
         assert stats["ast"] >= 1
 
     def test_query_stats_by_lang(self, store: Path, batch_with_outputs: str):
-        """Query stats grouped by language extension."""
+        """Query stats grouped by language (from snapshot lang_hint)."""
         engine = QueryEngine(store)
 
         stats = engine.query_stats(batch_with_outputs, "01_parse", group_by="lang")
 
         assert isinstance(stats, dict)
-        # Should have py extension
-        assert "py" in stats
+        # Should have python from lang_hint (not just py extension)
+        assert "python" in stats
 
     def test_get_task_summary(self, store: Path, batch_with_outputs: str):
         """Get task summary with all counts."""

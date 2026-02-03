@@ -192,6 +192,7 @@ class CacheWriter:
         """
         self.env = env
         self._stats_counters: dict[bytes, int] = {}
+        self._output_counters: dict[str, int] = {}  # Track per-key sequence numbers
 
     def put_file(
         self,
@@ -232,8 +233,11 @@ class CacheWriter:
         path: str,
         object_ref: Optional[str] = None,
         fmt: Optional[str] = None,
+        extra: Optional[dict] = None,
     ) -> None:
         """Add an output to the outputs_by_kind index.
+
+        Uses a sequence number to allow multiple outputs with same (kind, path).
 
         Args:
             snapshot_id: Snapshot ID.
@@ -243,12 +247,22 @@ class CacheWriter:
             path: File path.
             object_ref: Object reference (optional).
             fmt: Format (optional).
+            extra: Extra fields to store (optional).
         """
-        key = make_cache_key(snapshot_id, batch_id, task_id, kind, path)
-        value = msgpack.packb({
+        # Track sequence number for this prefix to allow duplicates
+        prefix_key = f"{snapshot_id}:{batch_id}:{task_id}:{kind}:{path}"
+        seq = self._output_counters.get(prefix_key, 0)
+        self._output_counters[prefix_key] = seq + 1
+
+        # Include sequence in key to make each output unique
+        key = make_cache_key(snapshot_id, batch_id, task_id, kind, path, str(seq))
+        value_data = {
             "object": object_ref,
             "format": fmt,
-        })
+        }
+        if extra:
+            value_data.update(extra)
+        value = msgpack.packb(value_data)
 
         with self.env.begin(write=True) as txn:
             txn.put(key, value, db=self.env.get_dbi(DBI_OUTPUTS_BY_KIND))
@@ -384,10 +398,10 @@ class CacheReader:
                 if not key.startswith(prefix):
                     break
                 parts = parse_cache_key(key)
-                # parts: [snapshot_id, batch_id, task_id, kind, path]
+                # parts: [snapshot_id, batch_id, task_id, kind, path, seq]
                 if len(parts) >= 5:
                     data = msgpack.unpackb(value)
-                    yield {
+                    result = {
                         "snapshot_id": parts[0],
                         "batch_id": parts[1],
                         "task_id": parts[2],
@@ -396,6 +410,11 @@ class CacheReader:
                         "object": data.get("object"),
                         "format": data.get("format"),
                     }
+                    # Include any extra fields from value
+                    for k, v in data.items():
+                        if k not in ("object", "format"):
+                            result[k] = v
+                    yield result
 
     def iter_diagnostics_by_severity(
         self,

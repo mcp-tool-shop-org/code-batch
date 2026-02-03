@@ -5,25 +5,98 @@ Answers questions from JSONL scans without requiring a database:
 - Which outputs exist for a given task?
 - Which files failed a given task?
 - Aggregate counts by kind, severity, or language
+
+With LMDB acceleration (Phase 3):
+- If a valid cache exists, uses it for faster queries
+- Falls back to JSONL scan if cache is missing or stale
 """
 
 import json
 from collections import Counter
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .cache import CacheReader
 
 
 class QueryEngine:
     """Query engine for batch output indexes."""
 
-    def __init__(self, store_root: Path):
+    def __init__(self, store_root: Path, use_cache: bool = True):
         """Initialize the query engine.
 
         Args:
             store_root: Root directory of the CodeBatch store.
+            use_cache: Whether to attempt using LMDB cache (default True).
         """
         self.store_root = Path(store_root)
         self.batches_dir = self.store_root / "batches"
+        self.use_cache = use_cache
+        self._cache_reader: Optional["CacheReader"] = None
+        self._cache_batch_id: Optional[str] = None
+
+    def close(self) -> None:
+        """Close any open cache connections.
+
+        Call this before deleting the cache directory.
+        """
+        if self._cache_reader is not None:
+            try:
+                self._cache_reader.env.close()
+            except Exception:
+                pass
+            self._cache_reader = None
+            self._cache_batch_id = None
+
+    def __enter__(self) -> "QueryEngine":
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.close()
+
+    def _get_cache_reader(self, batch_id: str) -> Optional["CacheReader"]:
+        """Get a cache reader for a batch, if available.
+
+        Args:
+            batch_id: Batch ID.
+
+        Returns:
+            CacheReader if cache is valid, None otherwise.
+        """
+        if not self.use_cache:
+            return None
+
+        # Return cached reader if for same batch
+        if self._cache_reader is not None and self._cache_batch_id == batch_id:
+            return self._cache_reader
+
+        # Try to open cache
+        try:
+            from .cache import try_open_cache
+            reader = try_open_cache(self.store_root, batch_id)
+            if reader is not None:
+                self._cache_reader = reader
+                self._cache_batch_id = batch_id
+            return reader
+        except Exception:
+            return None
+
+    def _get_snapshot_id(self, batch_id: str) -> Optional[str]:
+        """Get snapshot ID for a batch.
+
+        Args:
+            batch_id: Batch ID.
+
+        Returns:
+            Snapshot ID or None if batch not found.
+        """
+        batch_path = self.batches_dir / batch_id / "batch.json"
+        if not batch_path.exists():
+            return None
+        with open(batch_path, "r", encoding="utf-8") as f:
+            batch = json.load(f)
+        return batch.get("snapshot_id")
 
     def _iter_shard_outputs(
         self, batch_id: str, task_id: str
@@ -66,6 +139,8 @@ class QueryEngine:
     ) -> list[dict]:
         """Query diagnostic outputs.
 
+        Uses LMDB cache if available, falls back to JSONL scan.
+
         Args:
             batch_id: Batch ID.
             task_id: Task ID.
@@ -76,6 +151,50 @@ class QueryEngine:
         Returns:
             List of diagnostic records.
         """
+        # Try cache first
+        cache_reader = self._get_cache_reader(batch_id)
+        if cache_reader is not None:
+            return self._query_diagnostics_cached(
+                cache_reader, batch_id, task_id, severity, code, path_pattern
+            )
+
+        # Fall back to JSONL scan
+        return self._query_diagnostics_scan(batch_id, task_id, severity, code, path_pattern)
+
+    def _query_diagnostics_cached(
+        self,
+        cache_reader: "CacheReader",
+        batch_id: str,
+        task_id: str,
+        severity: Optional[str],
+        code: Optional[str],
+        path_pattern: Optional[str],
+    ) -> list[dict]:
+        """Query diagnostics from LMDB cache."""
+        snapshot_id = self._get_snapshot_id(batch_id)
+        if snapshot_id is None:
+            return []
+
+        results = []
+        for record in cache_reader.iter_diagnostics_by_severity(
+            snapshot_id, batch_id, task_id, severity
+        ):
+            if code and record.get("code") != code:
+                continue
+            if path_pattern and path_pattern.lower() not in record.get("path", "").lower():
+                continue
+            results.append(record)
+        return results
+
+    def _query_diagnostics_scan(
+        self,
+        batch_id: str,
+        task_id: str,
+        severity: Optional[str],
+        code: Optional[str],
+        path_pattern: Optional[str],
+    ) -> list[dict]:
+        """Query diagnostics from JSONL scan (fallback)."""
         results = []
 
         for record in self._iter_shard_outputs(batch_id, task_id):
@@ -104,6 +223,8 @@ class QueryEngine:
     ) -> list[dict]:
         """Query output records.
 
+        Uses LMDB cache if available, falls back to JSONL scan.
+
         Args:
             batch_id: Batch ID.
             task_id: Task ID.
@@ -113,6 +234,46 @@ class QueryEngine:
         Returns:
             List of output records.
         """
+        # Try cache first
+        cache_reader = self._get_cache_reader(batch_id)
+        if cache_reader is not None:
+            return self._query_outputs_cached(
+                cache_reader, batch_id, task_id, kind, path_pattern
+            )
+
+        # Fall back to JSONL scan
+        return self._query_outputs_scan(batch_id, task_id, kind, path_pattern)
+
+    def _query_outputs_cached(
+        self,
+        cache_reader: "CacheReader",
+        batch_id: str,
+        task_id: str,
+        kind: Optional[str],
+        path_pattern: Optional[str],
+    ) -> list[dict]:
+        """Query outputs from LMDB cache."""
+        snapshot_id = self._get_snapshot_id(batch_id)
+        if snapshot_id is None:
+            return []
+
+        results = []
+        for record in cache_reader.iter_outputs_by_kind(
+            snapshot_id, batch_id, task_id, kind
+        ):
+            if path_pattern and path_pattern.lower() not in record.get("path", "").lower():
+                continue
+            results.append(record)
+        return results
+
+    def _query_outputs_scan(
+        self,
+        batch_id: str,
+        task_id: str,
+        kind: Optional[str],
+        path_pattern: Optional[str],
+    ) -> list[dict]:
+        """Query outputs from JSONL scan (fallback)."""
         results = []
 
         for record in self._iter_shard_outputs(batch_id, task_id):
@@ -134,6 +295,8 @@ class QueryEngine:
     ) -> dict[str, int]:
         """Get aggregate statistics.
 
+        Uses LMDB cache if available (pre-aggregated), falls back to JSONL scan.
+
         Args:
             batch_id: Batch ID.
             task_id: Task ID.
@@ -142,7 +305,67 @@ class QueryEngine:
         Returns:
             Dict mapping group values to counts.
         """
+        # Try cache first (has pre-aggregated stats)
+        cache_reader = self._get_cache_reader(batch_id)
+        if cache_reader is not None:
+            return self._query_stats_cached(cache_reader, batch_id, task_id, group_by)
+
+        # Fall back to JSONL scan
+        return self._query_stats_scan(batch_id, task_id, group_by)
+
+    def _query_stats_cached(
+        self,
+        cache_reader: "CacheReader",
+        batch_id: str,
+        task_id: str,
+        group_by: str,
+    ) -> dict[str, int]:
+        """Query stats from LMDB cache (pre-aggregated)."""
+        snapshot_id = self._get_snapshot_id(batch_id)
+        if snapshot_id is None:
+            return {}
+
+        result = {}
+        for value, count in cache_reader.iter_stats(snapshot_id, batch_id, task_id, group_by):
+            result[value] = count
+        return result
+
+    def _get_lang_by_path(self, batch_id: str) -> dict[str, str]:
+        """Load lang_hint mapping from snapshot for a batch.
+
+        Args:
+            batch_id: Batch ID.
+
+        Returns:
+            Dict mapping path to lang_hint.
+        """
+        snapshot_id = self._get_snapshot_id(batch_id)
+        if snapshot_id is None:
+            return {}
+
+        from .snapshot import SnapshotBuilder
+        builder = SnapshotBuilder(self.store_root)
+        lang_map = {}
+        try:
+            for record in builder.iter_file_index(snapshot_id):
+                lang_map[record["path"]] = record.get("lang_hint", "unknown")
+        except Exception:
+            pass
+        return lang_map
+
+    def _query_stats_scan(
+        self,
+        batch_id: str,
+        task_id: str,
+        group_by: str,
+    ) -> dict[str, int]:
+        """Query stats from JSONL scan (fallback)."""
         counter: Counter[str] = Counter()
+
+        # Load lang mapping for lang stats (to match cache behavior)
+        lang_by_path: Optional[dict[str, str]] = None
+        if group_by == "lang":
+            lang_by_path = self._get_lang_by_path(batch_id)
 
         for record in self._iter_shard_outputs(batch_id, task_id):
             if group_by == "kind":
@@ -152,10 +375,12 @@ class QueryEngine:
             elif group_by == "code":
                 value = record.get("code", "none")
             elif group_by == "lang":
-                # Extract language from path extension
+                # Use lang_hint from snapshot (same as cache)
                 path = record.get("path", "")
-                ext = path.rsplit(".", 1)[-1] if "." in path else "none"
-                value = ext
+                if lang_by_path is not None:
+                    value = lang_by_path.get(path, "unknown")
+                else:
+                    value = "unknown"
             else:
                 value = record.get(group_by, "unknown")
 

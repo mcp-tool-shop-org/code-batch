@@ -142,6 +142,14 @@ def build_index(
                 object_ref = record.get("object")
                 fmt = record.get("format")
 
+                # Build extra fields for storage (metric name, value, etc.)
+                extra = {}
+                if kind == "metric":
+                    if "metric" in record:
+                        extra["metric"] = record["metric"]
+                    if "value" in record:
+                        extra["value"] = record["value"]
+
                 # Add to outputs_by_kind
                 writer.put_output(
                     snapshot_id=snapshot_id,
@@ -151,6 +159,7 @@ def build_index(
                     path=path,
                     object_ref=object_ref,
                     fmt=fmt,
+                    extra=extra if extra else None,
                 )
                 stats["outputs_indexed"] += 1
 
