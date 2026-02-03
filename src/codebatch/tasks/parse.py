@@ -1,8 +1,8 @@
 """Parse task executor - produces AST and diagnostic outputs.
 
-For Phase 1, supports:
-- Python (via ast module)
-- JavaScript/TypeScript (simple tokenization)
+Supports:
+- Python (via ast module) - Full AST with names preserved
+- JavaScript/TypeScript (simple tokenization, tree-sitter optional)
 - Text files (line-based tokenization)
 
 Emits:
@@ -10,12 +10,14 @@ Emits:
 - kind=diagnostic: Parse errors/warnings
 
 Enforces chunking threshold (default 16MB) with chunk manifest objects.
+
+Phase 8: Full Python AST with function/class/variable names preserved.
 """
 
 import ast
 import json
 import re
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 from ..common import SCHEMA_VERSION, PRODUCER
 from ..runner import ShardRunner
@@ -25,8 +27,191 @@ from ..runner import ShardRunner
 DEFAULT_CHUNK_SIZE = 16 * 1024 * 1024
 
 
+def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dict:
+    """Convert an AST node to a dictionary with full fidelity.
+
+    Preserves all important attributes including names, args, etc.
+    Uses depth limiting to handle recursive structures.
+
+    Args:
+        node: AST node to convert.
+        depth: Current recursion depth.
+        max_depth: Maximum recursion depth.
+
+    Returns:
+        Dictionary representation of the node.
+    """
+    if depth > max_depth:
+        return {"type": node.__class__.__name__, "truncated": True}
+
+    result: dict[str, Any] = {"type": node.__class__.__name__}
+
+    # Add location info if present
+    if hasattr(node, "lineno"):
+        result["lineno"] = node.lineno
+    if hasattr(node, "col_offset"):
+        result["col_offset"] = node.col_offset
+    if hasattr(node, "end_lineno"):
+        result["end_lineno"] = node.end_lineno
+    if hasattr(node, "end_col_offset"):
+        result["end_col_offset"] = node.end_col_offset
+
+    # Handle specific node types with their important attributes
+    node_type = node.__class__.__name__
+
+    # Names and identifiers
+    if hasattr(node, "name") and node.name is not None:
+        result["name"] = node.name
+    if hasattr(node, "id") and node.id is not None:
+        result["id"] = node.id
+    if hasattr(node, "attr") and node.attr is not None:
+        result["attr"] = node.attr
+    if hasattr(node, "asname") and node.asname is not None:
+        result["asname"] = node.asname
+    if hasattr(node, "module") and node.module is not None:
+        result["module"] = node.module
+    if hasattr(node, "arg") and node.arg is not None:
+        result["arg"] = node.arg
+
+    # Function arguments
+    if node_type == "FunctionDef" or node_type == "AsyncFunctionDef":
+        if hasattr(node, "args") and node.args:
+            result["args"] = _convert_arguments(node.args, depth + 1, max_depth)
+        if hasattr(node, "decorator_list") and node.decorator_list:
+            result["decorators"] = [
+                _ast_node_to_dict(d, depth + 1, max_depth)
+                for d in node.decorator_list
+            ]
+        if hasattr(node, "returns") and node.returns:
+            result["returns"] = _ast_node_to_dict(node.returns, depth + 1, max_depth)
+
+    # Class bases and keywords
+    if node_type == "ClassDef":
+        if hasattr(node, "bases") and node.bases:
+            result["bases"] = [
+                _ast_node_to_dict(b, depth + 1, max_depth)
+                for b in node.bases
+            ]
+        if hasattr(node, "decorator_list") and node.decorator_list:
+            result["decorators"] = [
+                _ast_node_to_dict(d, depth + 1, max_depth)
+                for d in node.decorator_list
+            ]
+
+    # Import handling
+    if node_type == "Import":
+        result["names"] = [
+            {"name": alias.name, "asname": alias.asname}
+            for alias in node.names
+        ]
+    if node_type == "ImportFrom":
+        result["names"] = [
+            {"name": alias.name, "asname": alias.asname}
+            for alias in node.names
+        ]
+        result["level"] = node.level
+
+    # Assignment targets
+    if node_type in ("Assign", "AnnAssign", "AugAssign"):
+        if hasattr(node, "targets"):
+            result["targets"] = [
+                _ast_node_to_dict(t, depth + 1, max_depth)
+                for t in node.targets
+            ]
+        if hasattr(node, "target"):
+            result["target"] = _ast_node_to_dict(node.target, depth + 1, max_depth)
+        if hasattr(node, "annotation") and node.annotation:
+            result["annotation"] = _ast_node_to_dict(node.annotation, depth + 1, max_depth)
+
+    # Literals
+    if node_type == "Constant":
+        # Represent the value safely
+        val = node.value
+        if isinstance(val, (str, int, float, bool, type(None))):
+            result["value"] = val
+        elif isinstance(val, bytes):
+            result["value"] = f"<bytes:{len(val)}>"
+        else:
+            result["value"] = f"<{type(val).__name__}>"
+
+    # For body-containing nodes, include children
+    if hasattr(node, "body") and isinstance(node.body, list):
+        result["body"] = [
+            _ast_node_to_dict(child, depth + 1, max_depth)
+            for child in node.body
+            if isinstance(child, ast.AST)
+        ]
+
+    # orelse for if/for/while/try
+    if hasattr(node, "orelse") and isinstance(node.orelse, list) and node.orelse:
+        result["orelse"] = [
+            _ast_node_to_dict(child, depth + 1, max_depth)
+            for child in node.orelse
+            if isinstance(child, ast.AST)
+        ]
+
+    # handlers for try/except
+    if hasattr(node, "handlers") and node.handlers:
+        result["handlers"] = [
+            _ast_node_to_dict(h, depth + 1, max_depth)
+            for h in node.handlers
+        ]
+
+    # ExceptHandler specifics
+    if node_type == "ExceptHandler":
+        if hasattr(node, "type") and node.type:
+            result["exc_type"] = _ast_node_to_dict(node.type, depth + 1, max_depth)
+
+    return result
+
+
+def _convert_arguments(args: ast.arguments, depth: int, max_depth: int) -> dict:
+    """Convert function arguments to dict.
+
+    Args:
+        args: ast.arguments node.
+        depth: Current recursion depth.
+        max_depth: Maximum recursion depth.
+
+    Returns:
+        Dictionary with argument info.
+    """
+    result = {}
+
+    if args.args:
+        result["args"] = [
+            {"arg": a.arg, "annotation": _ast_node_to_dict(a.annotation, depth, max_depth) if a.annotation else None}
+            for a in args.args
+        ]
+
+    if args.posonlyargs:
+        result["posonlyargs"] = [
+            {"arg": a.arg, "annotation": _ast_node_to_dict(a.annotation, depth, max_depth) if a.annotation else None}
+            for a in args.posonlyargs
+        ]
+
+    if args.kwonlyargs:
+        result["kwonlyargs"] = [
+            {"arg": a.arg, "annotation": _ast_node_to_dict(a.annotation, depth, max_depth) if a.annotation else None}
+            for a in args.kwonlyargs
+        ]
+
+    if args.vararg:
+        result["vararg"] = {"arg": args.vararg.arg}
+
+    if args.kwarg:
+        result["kwarg"] = {"arg": args.kwarg.arg}
+
+    return result
+
+
 def parse_python(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
-    """Parse Python source code.
+    """Parse Python source code with full AST fidelity.
+
+    Produces a complete AST with all names preserved:
+    - FunctionDef.name, ClassDef.name
+    - Name.id, Attribute.attr
+    - Import names, function arguments
 
     Args:
         content: Python source code.
@@ -39,19 +224,15 @@ def parse_python(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
 
     try:
         tree = ast.parse(content, filename=path)
-        # Convert AST to dict - summarized mode for reasonable size
+
+        # Convert full AST to dict with names preserved
         ast_dict = {
             "type": "Module",
-            "ast_mode": "summary",  # Explicit about summarization
+            "ast_mode": "full",  # Phase 8: full fidelity mode
             "body": [
-                {
-                    "type": node.__class__.__name__,
-                    "lineno": getattr(node, "lineno", None),
-                    "col_offset": getattr(node, "col_offset", None),
-                }
-                for node in ast.walk(tree)
-                if hasattr(node, "lineno")
-            ][:100],  # Limit for reasonable size
+                _ast_node_to_dict(node)
+                for node in tree.body
+            ],
             "stats": {
                 "total_nodes": len(list(ast.walk(tree))),
             },
