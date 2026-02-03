@@ -131,6 +131,11 @@ class CacheEnv:
         return self._dbis[name]
 
     @property
+    def is_open(self) -> bool:
+        """Check if the environment is open."""
+        return self._env is not None
+
+    @property
     def env(self) -> lmdb.Environment:
         """Get the LMDB environment."""
         if self._env is None:

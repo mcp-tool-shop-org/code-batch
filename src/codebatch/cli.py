@@ -212,6 +212,15 @@ def main(argv: list[str] = None) -> int:
     query_diag_parser.add_argument("--json", action="store_true", help="Output as JSON")
     query_diag_parser.set_defaults(func=cmd_query)
 
+    # index build command
+    index_build_parser = subparsers.add_parser("index-build", help="Build LMDB acceleration cache")
+    index_build_parser.add_argument("--batch", required=True, help="Batch ID")
+    index_build_parser.add_argument("--store", required=True, help="Store root directory")
+    index_build_parser.add_argument("--rebuild", action="store_true", help="Delete existing cache before building")
+    index_build_parser.add_argument("--verify", action="store_true", help="Verify cache against JSONL scan after build")
+    index_build_parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    index_build_parser.set_defaults(func=cmd_index_build)
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -426,6 +435,47 @@ def cmd_query(args: argparse.Namespace) -> int:
                     print(f"  {key}: {count}")
 
     return 0
+
+
+def cmd_index_build(args: argparse.Namespace) -> int:
+    """Handle the index build command."""
+    store_root = Path(args.store)
+    batch_id = args.batch
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    from .index_build import build_index
+
+    try:
+        print(f"Building index for batch {batch_id}...")
+        stats = build_index(
+            store_root,
+            batch_id,
+            rebuild=args.rebuild,
+            verify=args.verify,
+        )
+
+        print(f"Index built successfully:")
+        print(f"  Files indexed: {stats['files_indexed']}")
+        print(f"  Outputs indexed: {stats['outputs_indexed']}")
+        print(f"  Diagnostics indexed: {stats['diagnostics_indexed']}")
+
+        if args.verbose:
+            print(f"  Snapshot: {stats['snapshot_id']}")
+            print(f"  Batch: {stats['batch_id']}")
+            print(f"  Tasks: {', '.join(stats['tasks'])}")
+            print(f"  Fingerprint: {stats['source_fingerprint']}")
+
+        return 0
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Error building index: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
