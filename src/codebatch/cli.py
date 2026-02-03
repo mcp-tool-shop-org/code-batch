@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .batch import BatchManager, PIPELINES
+from .query import QueryEngine
 from .runner import ShardRunner
 from .snapshot import SnapshotBuilder
 
@@ -170,6 +171,20 @@ def main(argv: list[str] = None) -> int:
     run_shard_parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     run_shard_parser.set_defaults(func=cmd_run_shard)
 
+    # query diagnostics command
+    query_diag_parser = subparsers.add_parser("query", help="Query outputs")
+    query_diag_parser.add_argument("query_type", choices=["diagnostics", "outputs", "stats"], help="Query type")
+    query_diag_parser.add_argument("--batch", required=True, help="Batch ID")
+    query_diag_parser.add_argument("--task", required=True, help="Task ID")
+    query_diag_parser.add_argument("--store", required=True, help="Store root directory")
+    query_diag_parser.add_argument("--severity", help="Filter by severity (error, warning, info, hint)")
+    query_diag_parser.add_argument("--kind", help="Filter by output kind")
+    query_diag_parser.add_argument("--code", help="Filter by diagnostic code")
+    query_diag_parser.add_argument("--path", help="Filter by path substring")
+    query_diag_parser.add_argument("--group-by", choices=["kind", "severity", "code", "lang"], default="kind", help="Group stats by field")
+    query_diag_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    query_diag_parser.set_defaults(func=cmd_query)
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -312,6 +327,78 @@ def cmd_run_shard(args: argparse.Namespace) -> int:
     else:
         print(f"Shard failed: {final_state.get('error', {}).get('message', 'Unknown error')}")
         return 1
+
+
+def cmd_query(args: argparse.Namespace) -> int:
+    """Handle query commands."""
+    store_root = Path(args.store)
+    batch_id = args.batch
+    task_id = args.task
+    query_type = args.query_type
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    engine = QueryEngine(store_root)
+
+    if query_type == "diagnostics":
+        results = engine.query_diagnostics(
+            batch_id,
+            task_id,
+            severity=args.severity,
+            code=args.code,
+            path_pattern=args.path,
+        )
+
+        if args.json:
+            print(json.dumps(results, indent=2))
+        else:
+            if not results:
+                print("No diagnostics found.")
+            else:
+                for diag in results:
+                    sev = diag.get("severity", "?")
+                    code = diag.get("code", "?")
+                    path = diag.get("path", "?")
+                    line = diag.get("line", "?")
+                    msg = diag.get("message", "")
+                    print(f"[{sev.upper()}] {path}:{line} {code}: {msg}")
+
+    elif query_type == "outputs":
+        results = engine.query_outputs(
+            batch_id,
+            task_id,
+            kind=args.kind,
+            path_pattern=args.path,
+        )
+
+        if args.json:
+            print(json.dumps(results, indent=2))
+        else:
+            if not results:
+                print("No outputs found.")
+            else:
+                for output in results:
+                    kind = output.get("kind", "?")
+                    path = output.get("path", "?")
+                    obj = output.get("object", "")[:12] + "..." if output.get("object") else ""
+                    print(f"{kind:15} {path} {obj}")
+
+    elif query_type == "stats":
+        stats = engine.query_stats(batch_id, task_id, group_by=args.group_by)
+
+        if args.json:
+            print(json.dumps(stats, indent=2))
+        else:
+            if not stats:
+                print("No outputs found.")
+            else:
+                print(f"Stats grouped by {args.group_by}:")
+                for key, count in sorted(stats.items(), key=lambda x: -x[1]):
+                    print(f"  {key}: {count}")
+
+    return 0
 
 
 if __name__ == "__main__":
