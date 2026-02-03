@@ -1,0 +1,13 @@
+{
+  "batch_id": "batch-abc123",
+  "diagnostics": {
+    "errors": 5,
+    "warnings": 10
+  },
+  "tasks": [
+    "parse",
+    "lint",
+    "analyze"
+  ],
+  "total_files": 42
+}

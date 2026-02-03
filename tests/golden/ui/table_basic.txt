@@ -1,0 +1,6 @@
+PATH           KIND        CODE  SEVERITY
+-------------  ----------  ----  --------
+src/main.py    diagnostic  E001  error   
+src/main.py    diagnostic  E003  error   
+src/util.py    diagnostic  W002  warning 
+tests/test.py  diagnostic  I001  info    

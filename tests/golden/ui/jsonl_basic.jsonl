@@ -1,0 +1,4 @@
+{"code": "E001", "kind": "diagnostic", "path": "src/main.py", "severity": "error"}
+{"code": "E003", "kind": "diagnostic", "path": "src/main.py", "severity": "error"}
+{"code": "W002", "kind": "diagnostic", "path": "src/util.py", "severity": "warning"}
+{"code": "I001", "kind": "diagnostic", "path": "tests/test.py", "severity": "info"}
