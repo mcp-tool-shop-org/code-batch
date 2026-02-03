@@ -250,6 +250,95 @@ def main(argv: list[str] = None) -> int:
     gate_explain_parser.add_argument("gate_id", help="Gate ID or alias")
     gate_explain_parser.set_defaults(func=cmd_gate_explain)
 
+    # ========== Phase 5 Workflow Commands ==========
+
+    # run command - run all tasks/shards in a batch
+    run_parser = subparsers.add_parser("run", help="Run all tasks and shards in a batch")
+    run_parser.add_argument("--batch", required=True, help="Batch ID to run")
+    run_parser.add_argument("--task", help="Run only this task (optional)")
+    run_parser.add_argument("--store", required=True, help="Store root directory")
+    run_parser.add_argument("-v", "--verbose", action="store_true", help="Show progress")
+    run_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    run_parser.set_defaults(func=cmd_run)
+
+    # resume command - run only incomplete shards
+    resume_parser = subparsers.add_parser("resume", help="Resume batch, running only incomplete shards")
+    resume_parser.add_argument("--batch", required=True, help="Batch ID to resume")
+    resume_parser.add_argument("--store", required=True, help="Store root directory")
+    resume_parser.add_argument("-v", "--verbose", action="store_true", help="Show progress")
+    resume_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    resume_parser.set_defaults(func=cmd_resume)
+
+    # status command - show batch progress
+    status_parser = subparsers.add_parser("status", help="Show batch progress")
+    status_parser.add_argument("--batch", required=True, help="Batch ID")
+    status_parser.add_argument("--store", required=True, help="Store root directory")
+    status_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    status_parser.set_defaults(func=cmd_status)
+
+    # summary command - human summary of outputs
+    summary_parser = subparsers.add_parser("summary", help="Show human summary of batch outputs")
+    summary_parser.add_argument("--batch", required=True, help="Batch ID")
+    summary_parser.add_argument("--task", help="Filter by task")
+    summary_parser.add_argument("--store", required=True, help="Store root directory")
+    summary_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    summary_parser.set_defaults(func=cmd_summary)
+
+    # pipelines command - list available pipelines
+    pipelines_parser = subparsers.add_parser("pipelines", help="List available pipelines")
+    pipelines_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    pipelines_parser.set_defaults(func=cmd_pipelines)
+
+    # pipeline show command
+    pipeline_show_parser = subparsers.add_parser("pipeline", help="Show pipeline details")
+    pipeline_show_parser.add_argument("name", help="Pipeline name")
+    pipeline_show_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    pipeline_show_parser.set_defaults(func=cmd_pipeline_show)
+
+    # tasks command - list tasks in a batch
+    tasks_parser = subparsers.add_parser("tasks", help="List tasks in a batch")
+    tasks_parser.add_argument("--batch", required=True, help="Batch ID")
+    tasks_parser.add_argument("--store", required=True, help="Store root directory")
+    tasks_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    tasks_parser.set_defaults(func=cmd_tasks)
+
+    # shards command - list shards for a task
+    shards_parser = subparsers.add_parser("shards", help="List shards for a task")
+    shards_parser.add_argument("--batch", required=True, help="Batch ID")
+    shards_parser.add_argument("--task", required=True, help="Task ID")
+    shards_parser.add_argument("--store", required=True, help="Store root directory")
+    shards_parser.add_argument("--status", choices=["ready", "done", "failed"], help="Filter by status")
+    shards_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    shards_parser.set_defaults(func=cmd_shards)
+
+    # errors command - alias for query diagnostics with severity=error
+    errors_parser = subparsers.add_parser("errors", help="Show errors from a batch (alias)")
+    errors_parser.add_argument("--batch", required=True, help="Batch ID")
+    errors_parser.add_argument("--task", help="Filter by task")
+    errors_parser.add_argument("--store", required=True, help="Store root directory")
+    errors_parser.add_argument("--limit", type=int, default=50, help="Max errors to show")
+    errors_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    errors_parser.set_defaults(func=cmd_errors)
+
+    # files command - list files in a snapshot/batch
+    files_parser = subparsers.add_parser("files", help="List files in a snapshot")
+    files_parser.add_argument("--snapshot", help="Snapshot ID")
+    files_parser.add_argument("--batch", help="Batch ID (uses batch's snapshot)")
+    files_parser.add_argument("--store", required=True, help="Store root directory")
+    files_parser.add_argument("--limit", type=int, default=100, help="Max files to show")
+    files_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    files_parser.set_defaults(func=cmd_files)
+
+    # top command - top outputs by count
+    top_parser = subparsers.add_parser("top", help="Show top output kinds/severities")
+    top_parser.add_argument("--batch", required=True, help="Batch ID")
+    top_parser.add_argument("--task", help="Filter by task")
+    top_parser.add_argument("--store", required=True, help="Store root directory")
+    top_parser.add_argument("--by", choices=["kind", "severity", "code"], default="kind", help="Group by")
+    top_parser.add_argument("--limit", type=int, default=10, help="Number of top entries")
+    top_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    top_parser.set_defaults(func=cmd_top)
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -674,6 +763,551 @@ def cmd_gate_explain(args: argparse.Namespace) -> int:
     print(f"Tags: {', '.join(gate.tags)}")
     if gate.aliases:
         print(f"Aliases: {', '.join(gate.aliases)}")
+
+    return 0
+
+
+# ========== Phase 5 Command Handlers ==========
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    """Handle the run command."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        print("  Hint: Run 'codebatch init <store>' to create a store", file=sys.stderr)
+        return 1
+
+    from .workflow import WorkflowRunner
+
+    runner = WorkflowRunner(store_root)
+
+    # Progress callbacks for verbose mode
+    def on_shard_start(batch_id, task_id, shard_id):
+        if args.verbose:
+            print(f"  Running {task_id}/{shard_id}...", end="", flush=True)
+
+    def on_shard_complete(batch_id, task_id, shard_id, state):
+        if args.verbose:
+            status = state.get("status", "unknown")
+            stats = state.get("stats", {})
+            outputs = stats.get("outputs_written", 0)
+            if status == "done":
+                print(f" done ({outputs} outputs)")
+            else:
+                error = state.get("error", {}).get("message", "Unknown error")
+                print(f" FAILED: {error}")
+
+    print(f"Running batch {args.batch}...")
+
+    try:
+        result = runner.run(
+            args.batch,
+            task_filter=args.task,
+            on_shard_start=on_shard_start,
+            on_shard_complete=on_shard_complete,
+        )
+    except FileNotFoundError:
+        print(f"Error: Batch not found: {args.batch}", file=sys.stderr)
+        print("  Hint: Run 'codebatch batch-list --store <store>' to see batches", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps({
+            "batch_id": result.batch_id,
+            "success": result.success,
+            "tasks_completed": result.tasks_completed,
+            "tasks_failed": result.tasks_failed,
+            "shards_completed": result.shards_completed,
+            "shards_failed": result.shards_failed,
+            "error": result.error,
+        }, indent=2))
+    else:
+        if result.success:
+            print(f"\nOK: Batch completed successfully")
+            print(f"  Tasks: {result.tasks_completed} completed")
+            print(f"  Shards: {result.shards_completed} completed")
+            print(f"\nNext steps:")
+            print(f"  codebatch summary --batch {args.batch} --store {args.store}")
+        else:
+            print(f"\nFAIL: Batch completed with failures")
+            print(f"  Tasks: {result.tasks_completed} completed, {result.tasks_failed} failed")
+            print(f"  Shards: {result.shards_completed} completed, {result.shards_failed} failed")
+            if result.error:
+                print(f"  Error: {result.error}")
+            print(f"\nNext steps:")
+            print(f"  codebatch errors --batch {args.batch} --store {args.store}")
+
+    return 0 if result.success else 1
+
+
+def cmd_resume(args: argparse.Namespace) -> int:
+    """Handle the resume command."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    from .workflow import WorkflowRunner
+
+    runner = WorkflowRunner(store_root)
+
+    # Progress callbacks
+    def on_shard_start(batch_id, task_id, shard_id):
+        if args.verbose:
+            print(f"  Running {task_id}/{shard_id}...", end="", flush=True)
+
+    def on_shard_complete(batch_id, task_id, shard_id, state):
+        if args.verbose:
+            status = state.get("status", "unknown")
+            if status == "done":
+                print(" done")
+            else:
+                print(" FAILED")
+
+    print(f"Resuming batch {args.batch}...")
+
+    try:
+        result = runner.resume(
+            args.batch,
+            on_shard_start=on_shard_start,
+            on_shard_complete=on_shard_complete,
+        )
+    except FileNotFoundError:
+        print(f"Error: Batch not found: {args.batch}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps({
+            "batch_id": result.batch_id,
+            "success": result.success,
+            "shards_completed": result.shards_completed,
+            "shards_failed": result.shards_failed,
+        }, indent=2))
+    else:
+        if result.success:
+            print(f"\nOK: Batch resumed successfully")
+            print(f"  Shards: {result.shards_completed} completed")
+        else:
+            print(f"\nFAIL: Batch has failures")
+            print(f"  Shards: {result.shards_completed} completed, {result.shards_failed} failed")
+
+    return 0 if result.success else 1
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    """Handle the status command."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    from .workflow import WorkflowRunner
+
+    runner = WorkflowRunner(store_root)
+
+    try:
+        progress = runner.get_status(args.batch)
+    except FileNotFoundError:
+        print(f"Error: Batch not found: {args.batch}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps({
+            "batch_id": progress.batch_id,
+            "snapshot_id": progress.snapshot_id,
+            "pipeline": progress.pipeline,
+            "status": progress.status,
+            "total_shards": progress.total_shards,
+            "done_shards": progress.done_shards,
+            "failed_shards": progress.failed_shards,
+            "tasks": [
+                {
+                    "task_id": t.task_id,
+                    "task_type": t.task_type,
+                    "status": t.status,
+                    "shards_total": t.shards_total,
+                    "shards_done": t.shards_done,
+                    "shards_failed": t.shards_failed,
+                }
+                for t in progress.tasks
+            ],
+        }, indent=2))
+    else:
+        # Status icon (ASCII-safe)
+        icon = {"done": "[DONE]", "running": "[...]", "failed": "[FAIL]", "pending": "[ ]"}.get(
+            progress.status, "[?]"
+        )
+
+        print(f"Batch: {progress.batch_id}")
+        print(f"Pipeline: {progress.pipeline}")
+        print(f"Status: {icon} {progress.status.upper()}")
+        print()
+
+        # Progress bar (ASCII-safe)
+        if progress.total_shards > 0:
+            pct = int(100 * progress.done_shards / progress.total_shards)
+            bar_width = 40
+            filled = int(bar_width * progress.done_shards / progress.total_shards)
+            bar = "#" * filled + "-" * (bar_width - filled)
+            print(f"Progress: [{bar}] {pct}%")
+            print(f"  Shards: {progress.done_shards}/{progress.total_shards} done")
+            if progress.failed_shards > 0:
+                print(f"  Failed: {progress.failed_shards}")
+        print()
+
+        # Task breakdown
+        print(f"{'TASK':<15} {'TYPE':<10} {'STATUS':<10} {'PROGRESS':<15}")
+        print("-" * 55)
+        for task in progress.tasks:
+            task_icon = {"done": "*", "running": "~", "failed": "!"}.get(
+                task.status, " "
+            )
+            prog = f"{task.shards_done}/{task.shards_total}"
+            print(f"{task.task_id:<15} {task.task_type:<10} {task_icon} {task.status:<8} {prog:<15}")
+
+    return 0
+
+
+def cmd_summary(args: argparse.Namespace) -> int:
+    """Handle the summary command."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    from .workflow import get_output_summary
+
+    try:
+        summary = get_output_summary(store_root, args.batch, task_filter=args.task)
+    except FileNotFoundError:
+        print(f"Error: Batch not found: {args.batch}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(summary, indent=2))
+    else:
+        print(f"Batch Summary: {summary['batch_id']}")
+        print()
+
+        totals = summary["totals"]
+        print(f"Totals:")
+        print(f"  Outputs: {totals['outputs']}")
+        print(f"  Diagnostics: {totals['diagnostics']}")
+        if totals["errors"] > 0:
+            print(f"  Errors: {totals['errors']} (!)")
+        if totals["warnings"] > 0:
+            print(f"  Warnings: {totals['warnings']}")
+        print()
+
+        for task_id, task_summary in summary["tasks"].items():
+            print(f"Task: {task_id}")
+            print(f"  Total outputs: {task_summary['total_outputs']}")
+
+            if task_summary["outputs_by_kind"]:
+                print(f"  By kind:")
+                for kind, count in sorted(
+                    task_summary["outputs_by_kind"].items(), key=lambda x: -x[1]
+                ):
+                    print(f"    {kind}: {count}")
+
+            if task_summary["diagnostics_by_severity"]:
+                print(f"  Diagnostics:")
+                for sev, count in task_summary["diagnostics_by_severity"].items():
+                    print(f"    {sev}: {count}")
+            print()
+
+    return 0
+
+
+def cmd_pipelines(args: argparse.Namespace) -> int:
+    """Handle the pipelines command."""
+    from .workflow import list_pipelines
+
+    pipelines = list_pipelines()
+
+    if args.json:
+        print(json.dumps(pipelines, indent=2))
+    else:
+        print(f"{'NAME':<15} {'DESCRIPTION':<40} {'TASKS'}")
+        print("-" * 70)
+        for p in pipelines:
+            tasks = ", ".join(p["tasks"])
+            print(f"{p['name']:<15} {p['description']:<40} {tasks}")
+
+    return 0
+
+
+def cmd_pipeline_show(args: argparse.Namespace) -> int:
+    """Handle the pipeline show command."""
+    from .workflow import get_pipeline_details
+
+    details = get_pipeline_details(args.name)
+
+    if details is None:
+        print(f"Error: Unknown pipeline '{args.name}'", file=sys.stderr)
+        print("  Hint: Run 'codebatch pipelines' to see available pipelines", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(details, indent=2))
+    else:
+        print(f"Pipeline: {details['name']}")
+        print(f"Description: {details['description']}")
+        print()
+        print("Tasks:")
+        for task in details["tasks"]:
+            deps = ", ".join(task.get("depends_on", [])) or "none"
+            print(f"  {task['task_id']} ({task['type']})")
+            print(f"    Depends on: {deps}")
+
+    return 0
+
+
+def cmd_tasks(args: argparse.Namespace) -> int:
+    """Handle the tasks command."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    manager = BatchManager(store_root)
+
+    try:
+        plan = manager.load_plan(args.batch)
+    except FileNotFoundError:
+        print(f"Error: Batch not found: {args.batch}", file=sys.stderr)
+        return 1
+
+    tasks_info = []
+    for task_def in plan["tasks"]:
+        task_id = task_def["task_id"]
+        task = manager.load_task(args.batch, task_id)
+        tasks_info.append({
+            "task_id": task_id,
+            "type": task_def["type"],
+            "status": task.get("status", "ready"),
+            "depends_on": task_def.get("depends_on", []),
+        })
+
+    if args.json:
+        print(json.dumps(tasks_info, indent=2))
+    else:
+        print(f"{'TASK':<15} {'TYPE':<12} {'STATUS':<10} {'DEPENDS ON'}")
+        print("-" * 60)
+        for t in tasks_info:
+            deps = ", ".join(t["depends_on"]) or "-"
+            print(f"{t['task_id']:<15} {t['type']:<12} {t['status']:<10} {deps}")
+
+    return 0
+
+
+def cmd_shards(args: argparse.Namespace) -> int:
+    """Handle the shards command."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    from .workflow import get_shards_for_task
+
+    shards = get_shards_for_task(store_root, args.batch, args.task)
+
+    if not shards:
+        print(f"No shards found for task {args.task}", file=sys.stderr)
+        return 1
+
+    # Filter by status if requested
+    if args.status:
+        shards = [s for s in shards if s.status == args.status]
+
+    if args.json:
+        print(json.dumps([
+            {
+                "shard_id": s.shard_id,
+                "status": s.status,
+                "files_processed": s.files_processed,
+                "outputs_written": s.outputs_written,
+                "error": s.error,
+            }
+            for s in shards
+        ], indent=2))
+    else:
+        print(f"{'SHARD':<8} {'STATUS':<10} {'FILES':<8} {'OUTPUTS':<10} {'ERROR'}")
+        print("-" * 60)
+        for s in shards:
+            error = (s.error[:30] + "...") if s.error and len(s.error) > 30 else (s.error or "")
+            print(f"{s.shard_id:<8} {s.status:<10} {s.files_processed:<8} {s.outputs_written:<10} {error}")
+
+        # Summary
+        done = sum(1 for s in shards if s.status == "done")
+        failed = sum(1 for s in shards if s.status == "failed")
+        print(f"\nTotal: {len(shards)} shards ({done} done, {failed} failed)")
+
+    return 0
+
+
+def cmd_errors(args: argparse.Namespace) -> int:
+    """Handle the errors command (alias)."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    engine = QueryEngine(store_root)
+    manager = BatchManager(store_root)
+
+    try:
+        plan = manager.load_plan(args.batch)
+    except FileNotFoundError:
+        print(f"Error: Batch not found: {args.batch}", file=sys.stderr)
+        return 1
+
+    task_ids = [t["task_id"] for t in plan["tasks"]]
+    if args.task:
+        task_ids = [t for t in task_ids if t == args.task]
+
+    all_errors = []
+    for task_id in task_ids:
+        errors = engine.query_diagnostics(
+            args.batch, task_id, severity="error"
+        )
+        for e in errors:
+            e["task_id"] = task_id
+        all_errors.extend(errors)
+
+    # Limit results
+    if len(all_errors) > args.limit:
+        all_errors = all_errors[: args.limit]
+        truncated = True
+    else:
+        truncated = False
+
+    if args.json:
+        print(json.dumps(all_errors, indent=2))
+    else:
+        if not all_errors:
+            print("No errors found.")
+            return 0
+
+        for e in all_errors:
+            path = e.get("path", "?")
+            line = e.get("line", "?")
+            code = e.get("code", "?")
+            msg = e.get("message", "")
+            print(f"[ERROR] {path}:{line} ({code})")
+            print(f"  {msg}")
+            print()
+
+        if truncated:
+            print(f"(Showing first {args.limit} errors, use --limit to see more)")
+
+    return 0
+
+
+def cmd_files(args: argparse.Namespace) -> int:
+    """Handle the files command."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    snapshot_id = args.snapshot
+
+    # If batch provided, get snapshot from batch
+    if args.batch and not snapshot_id:
+        manager = BatchManager(store_root)
+        try:
+            batch = manager.load_batch(args.batch)
+            snapshot_id = batch["snapshot_id"]
+        except FileNotFoundError:
+            print(f"Error: Batch not found: {args.batch}", file=sys.stderr)
+            return 1
+
+    if not snapshot_id:
+        print("Error: Must provide --snapshot or --batch", file=sys.stderr)
+        return 1
+
+    builder = SnapshotBuilder(store_root)
+
+    try:
+        records = builder.load_file_index(snapshot_id)
+    except FileNotFoundError:
+        print(f"Error: Snapshot not found: {snapshot_id}", file=sys.stderr)
+        return 1
+
+    # Limit results
+    total = len(records)
+    if total > args.limit:
+        records = records[: args.limit]
+        truncated = True
+    else:
+        truncated = False
+
+    if args.json:
+        print(json.dumps(records, indent=2))
+    else:
+        print(f"{'PATH':<50} {'SIZE':<10} {'LANG'}")
+        print("-" * 70)
+        for r in records:
+            lang = r.get("lang_hint", "-")
+            print(f"{r['path']:<50} {r['size']:<10} {lang}")
+
+        print(f"\nTotal: {total} files")
+        if truncated:
+            print(f"(Showing first {args.limit} files, use --limit to see more)")
+
+    return 0
+
+
+def cmd_top(args: argparse.Namespace) -> int:
+    """Handle the top command."""
+    store_root = Path(args.store)
+
+    if not store_root.exists():
+        print(f"Error: Store does not exist: {store_root}", file=sys.stderr)
+        return 1
+
+    engine = QueryEngine(store_root)
+    manager = BatchManager(store_root)
+
+    try:
+        plan = manager.load_plan(args.batch)
+    except FileNotFoundError:
+        print(f"Error: Batch not found: {args.batch}", file=sys.stderr)
+        return 1
+
+    task_ids = [t["task_id"] for t in plan["tasks"]]
+    if args.task:
+        task_ids = [t for t in task_ids if t == args.task]
+
+    # Aggregate stats across tasks
+    combined = {}
+    for task_id in task_ids:
+        stats = engine.query_stats(args.batch, task_id, group_by=args.by)
+        for key, count in stats.items():
+            combined[key] = combined.get(key, 0) + count
+
+    # Sort and limit
+    sorted_items = sorted(combined.items(), key=lambda x: -x[1])[: args.limit]
+
+    if args.json:
+        print(json.dumps(dict(sorted_items), indent=2))
+    else:
+        print(f"Top {args.limit} by {args.by}:")
+        print()
+        print(f"{'VALUE':<30} {'COUNT':<10}")
+        print("-" * 45)
+        for key, count in sorted_items:
+            print(f"{key:<30} {count:<10}")
 
     return 0
 
