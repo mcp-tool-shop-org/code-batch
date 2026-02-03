@@ -30,6 +30,10 @@ All behaviors are defined in terms of filesystem structure and serialized record
 
 ---
 
+<!-- SPEC_PROTECTED_BEGIN -->
+<!-- WARNING: Changes to sections 2-8 require Phase 3+ and schema version bump -->
+<!-- Allowed changes: adding output kinds (§9), clarifying plan deps (§7), new schemas -->
+
 ## 2. Global Invariants
 
 The system SHALL maintain the following invariants:
@@ -222,6 +226,8 @@ A shard:
 3. Adds objects to the object store
 4. Appends records to its outputs index
 5. Emits completion events only after outputs are committed
+
+<!-- SPEC_PROTECTED_END -->
 
 ---
 
