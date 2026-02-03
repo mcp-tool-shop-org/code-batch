@@ -29,6 +29,14 @@ FORBIDDEN_IMPORTS = {
     "xmlrpc.server",
     "asyncio.Server",
 
+    # HTTP clients (also forbidden - no network at all in Phase 2)
+    "requests",
+    "httpx",
+    "urllib.request",
+    "urllib3",
+    "aiohttp",
+    "httplib2",
+
     # Web frameworks
     "fastapi",
     "flask",
@@ -41,6 +49,7 @@ FORBIDDEN_IMPORTS = {
     # Async web
     "aiohttp.web",
     "tornado.web",
+    "tornado.httpclient",
     "sanic",
 
     # WebSocket
@@ -51,14 +60,27 @@ FORBIDDEN_IMPORTS = {
     "grpc",
     "thrift",
     "zerorpc",
+
+    # FTP/SSH/other protocols
+    "ftplib",
+    "paramiko",
+    "fabric",
+    "telnetlib",
+    "smtplib",
+    "poplib",
+    "imaplib",
 }
 
 # Partial matches (module starts with these)
 FORBIDDEN_PREFIXES = [
     "http.server",
     "xmlrpc.server",
-    "aiohttp.web",
+    "aiohttp",
     "tornado.web",
+    "tornado.http",
+    "urllib.request",
+    "requests.",
+    "httpx.",
 ]
 
 

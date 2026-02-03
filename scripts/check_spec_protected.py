@@ -3,40 +3,31 @@
 
 Fails if protected regions of SPEC.md have changed.
 
+Uses a committed baseline hash file (.spec_baseline_hash) as the source of truth.
+This ensures enforcement works even without git history access.
+
 Usage:
-    python scripts/check_spec_protected.py [base_ref]
+    python scripts/check_spec_protected.py [--bootstrap]
 
 Arguments:
-    base_ref: Git ref to compare against (default: origin/main)
+    --bootstrap: Create/update the baseline hash file (run once to lock)
 
 Exit codes:
-    0: No protected changes
-    1: Protected region modified
-    2: Error (missing file, git error, etc.)
+    0: No protected changes (or bootstrap succeeded)
+    1: Protected region modified OR baseline missing
+    2: Error (missing file, etc.)
 """
 
-import subprocess
+import hashlib
 import sys
 import re
+from pathlib import Path
 
 
-SPEC_FILE = "SPEC.md"
+SPEC_FILE = Path("SPEC.md")
+BASELINE_FILE = Path(".spec_baseline_hash")
 BEGIN_MARKER = "<!-- SPEC_PROTECTED_BEGIN -->"
 END_MARKER = "<!-- SPEC_PROTECTED_END -->"
-
-
-def get_file_at_ref(filepath: str, ref: str) -> str:
-    """Get file contents at a git ref."""
-    try:
-        result = subprocess.run(
-            ["git", "show", f"{ref}:{filepath}"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout
-    except subprocess.CalledProcessError:
-        return ""  # File doesn't exist at ref
 
 
 def extract_protected_region(content: str) -> str:
@@ -52,47 +43,69 @@ def extract_protected_region(content: str) -> str:
     return content[start:end].strip()
 
 
-def main():
-    base_ref = sys.argv[1] if len(sys.argv) > 1 else "origin/main"
+def compute_hash(content: str) -> str:
+    """Compute SHA256 hash of content."""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-    # Get current file
-    try:
-        with open(SPEC_FILE, "r", encoding="utf-8") as f:
-            current_content = f.read()
-    except FileNotFoundError:
+
+def bootstrap_baseline(protected_region: str) -> None:
+    """Create or update the baseline hash file."""
+    region_hash = compute_hash(protected_region)
+    BASELINE_FILE.write_text(f"{region_hash}\n", encoding="utf-8")
+    print(f"OK: Baseline hash written to {BASELINE_FILE}")
+    print(f"    Hash: {region_hash[:16]}...")
+    print(f"    Commit this file to lock the protected region.")
+
+
+def main():
+    bootstrap_mode = "--bootstrap" in sys.argv
+
+    # Get current SPEC file
+    if not SPEC_FILE.exists():
         print(f"ERROR: {SPEC_FILE} not found")
         sys.exit(2)
 
-    # Get file at base ref
-    base_content = get_file_at_ref(SPEC_FILE, base_ref)
-    if not base_content:
-        print(f"INFO: {SPEC_FILE} not found at {base_ref}, skipping check")
-        sys.exit(0)
-
-    # Extract protected regions
+    current_content = SPEC_FILE.read_text(encoding="utf-8")
     current_protected = extract_protected_region(current_content)
-    base_protected = extract_protected_region(base_content)
-
-    if not base_protected:
-        print(f"INFO: No protected region in {base_ref}, skipping check")
-        sys.exit(0)
 
     if not current_protected:
-        print(f"ERROR: Protected region markers missing from current {SPEC_FILE}")
+        print(f"ERROR: Protected region markers missing from {SPEC_FILE}")
+        print(f"       Expected markers: {BEGIN_MARKER} ... {END_MARKER}")
         sys.exit(1)
 
-    # Compare
-    if current_protected != base_protected:
+    current_hash = compute_hash(current_protected)
+
+    # Bootstrap mode: create baseline
+    if bootstrap_mode:
+        bootstrap_baseline(current_protected)
+        sys.exit(0)
+
+    # Normal mode: compare against baseline
+    if not BASELINE_FILE.exists():
+        print(f"ERROR: Baseline file {BASELINE_FILE} not found")
+        print(f"       Run with --bootstrap to create it (once, then commit)")
+        print(f"       This is required to enforce SPEC stability.")
+        sys.exit(1)
+
+    baseline_hash = BASELINE_FILE.read_text(encoding="utf-8").strip()
+
+    if current_hash != baseline_hash:
         print(f"ERROR: Protected region of {SPEC_FILE} has been modified")
+        print(f"\n  Baseline hash: {baseline_hash[:16]}...")
+        print(f"  Current hash:  {current_hash[:16]}...")
         print(f"\nChanges detected in sections 2-8 (store layout, shard rules, truth separation).")
         print(f"These changes require Phase 3+ and a schema version bump.")
         print(f"\nAllowed changes:")
         print(f"  - Adding output kinds (section 9)")
         print(f"  - Clarifying plan deps (section 7)")
         print(f"  - Adding new schema files")
+        print(f"\nIf this change is intentional (Phase 3+):")
+        print(f"  1. Bump schema_version in common.py")
+        print(f"  2. Run: python scripts/check_spec_protected.py --bootstrap")
+        print(f"  3. Commit the updated {BASELINE_FILE}")
         sys.exit(1)
 
-    print(f"OK: Protected region unchanged")
+    print(f"OK: Protected region unchanged (hash: {current_hash[:16]}...)")
     sys.exit(0)
 
 
