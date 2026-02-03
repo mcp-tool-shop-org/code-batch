@@ -180,6 +180,14 @@ class ShardRunner:
         if state["status"] == "done":
             return state
 
+        # Enforce dependency completion (Phase 2 requirement)
+        deps_ok, incomplete = self.check_deps_complete(batch_id, task_id, shard_id)
+        if not deps_ok:
+            raise ValueError(
+                f"Cannot run task '{task_id}' shard '{shard_id}': "
+                f"dependencies not complete: {incomplete}"
+            )
+
         # Increment attempt counter
         state["attempt"] = state.get("attempt", 0) + 1
         attempt = state["attempt"]
@@ -364,3 +372,116 @@ class ShardRunner:
                 if line:
                     records.append(json.loads(line))
         return records
+
+    def iter_prior_outputs(
+        self,
+        batch_id: str,
+        task_id: str,
+        shard_id: str,
+        kind: Optional[str] = None,
+    ) -> Iterator[dict]:
+        """Stream output records from a prior task in the same shard.
+
+        This is the approved mechanism for tasks to consume outputs from
+        their dependencies. Tasks may only read from their own shard.
+
+        Args:
+            batch_id: Batch ID.
+            task_id: Task ID of the dependency (e.g., "01_parse").
+            shard_id: Shard ID (must match current shard).
+            kind: Optional filter by output kind (e.g., "ast", "diagnostic").
+
+        Yields:
+            Output records from the prior task, optionally filtered by kind.
+
+        Raises:
+            FileNotFoundError: If the dependency task shard doesn't exist.
+        """
+        outputs_path = self._shard_dir(batch_id, task_id, shard_id) / "outputs.index.jsonl"
+        if not outputs_path.exists():
+            return
+
+        with open(outputs_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                record = json.loads(line)
+                if kind is None or record.get("kind") == kind:
+                    yield record
+
+    def write_shard_outputs(
+        self,
+        batch_id: str,
+        task_id: str,
+        shard_id: str,
+        records: Iterable[dict],
+        snapshot_id: str,
+    ) -> int:
+        """Write shard outputs atomically with per-shard replacement.
+
+        This is the ONLY approved mechanism for writing outputs.index.jsonl.
+        Tasks should use this helper rather than writing directly.
+
+        The write is atomic: temp file -> replace. This enforces the
+        per-shard replacement policy (no appending).
+
+        Args:
+            batch_id: Batch ID.
+            task_id: Task ID.
+            shard_id: Shard ID.
+            records: Iterable of output records.
+            snapshot_id: Snapshot ID for record enrichment.
+
+        Returns:
+            Number of records written.
+        """
+        shard_dir = self._shard_dir(batch_id, task_id, shard_id)
+        outputs_path = shard_dir / "outputs.index.jsonl"
+        temp_outputs_path = outputs_path.with_suffix(f".tmp.{os.getpid()}")
+
+        outputs_written = 0
+        with open(temp_outputs_path, "w", encoding="utf-8") as f:
+            for record in records:
+                # Ensure required fields
+                record.setdefault("schema_version", SCHEMA_VERSION)
+                record.setdefault("snapshot_id", snapshot_id)
+                record.setdefault("batch_id", batch_id)
+                record.setdefault("task_id", task_id)
+                record.setdefault("shard_id", shard_id)
+                record.setdefault("ts", utc_now_z())
+                f.write(json.dumps(record, separators=(",", ":")))
+                f.write("\n")
+                outputs_written += 1
+
+        # Atomic replace (not append!)
+        temp_outputs_path.replace(outputs_path)
+        return outputs_written
+
+    def check_deps_complete(self, batch_id: str, task_id: str, shard_id: str) -> tuple[bool, list[str]]:
+        """Check if all dependencies for a task are complete in this shard.
+
+        Args:
+            batch_id: Batch ID.
+            task_id: Task ID to check.
+            shard_id: Shard ID.
+
+        Returns:
+            Tuple of (all_complete, incomplete_task_ids).
+        """
+        task = self.batch_manager.load_task(batch_id, task_id)
+        deps = task.get("inputs", {}).get("tasks", [])
+
+        if not deps:
+            return True, []
+
+        incomplete = []
+        for dep_task_id in deps:
+            try:
+                state = self._load_state(batch_id, dep_task_id, shard_id)
+                if state.get("status") != "done":
+                    incomplete.append(dep_task_id)
+            except FileNotFoundError:
+                incomplete.append(dep_task_id)
+
+        return len(incomplete) == 0, incomplete
