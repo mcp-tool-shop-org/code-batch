@@ -1,6 +1,11 @@
 # CodeBatch Storage & Execution Specification
 
-**Version 1.0 (Draft)**
+**Specification Version: 1.0 (Draft)**
+**Schema Version: 1** (`schema_version` field in all records)
+
+> **Note**: The specification version tracks the document itself. The schema version
+> is the integer value written to `schema_version` fields in JSON records and is
+> incremented when record formats change in backward-incompatible ways.
 
 ---
 
