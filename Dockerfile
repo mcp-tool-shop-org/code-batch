@@ -1,6 +1,6 @@
 FROM python:3.11-slim AS builder
 WORKDIR /build
-COPY pyproject.toml README.md LICENSE ./
+COPY pyproject.toml README.md ./
 COPY src/ src/
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
