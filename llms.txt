@@ -1,0 +1,81 @@
+# CodeBatch
+
+> Content-addressed batch execution engine with deterministic sharding and queryable outputs
+
+## Overview
+
+CodeBatch is a filesystem-based execution substrate for running deterministic transformations over codebases. It snapshots inputs as immutable content-addressed objects, shards work deterministically, and indexes all semantic outputs for structured querying — no database required.
+
+## Quick Start
+
+```
+pip install codebatch
+
+# Initialize a store
+codebatch init ./store
+
+# Snapshot a project
+codebatch snapshot ./my-project --store ./store
+
+# Run a full pipeline
+codebatch batch init --snapshot <id> --pipeline full --store ./store
+codebatch run --batch <id> --store ./store
+
+# View results
+codebatch summary --batch <id> --store ./store
+```
+
+## CLI Commands
+
+### Core Workflow
+- `codebatch init <path>` — Initialize a store
+- `codebatch snapshot <dir> --store <path>` — Create content-addressed snapshot
+- `codebatch batch init --snapshot <id> --pipeline <name> --store <path>` — Start a batch
+- `codebatch run --batch <id> --store <path>` — Execute all tasks and shards
+- `codebatch resume --batch <id> --store <path>` — Resume interrupted batch
+- `codebatch status --batch <id> --store <path>` — View progress
+- `codebatch summary --batch <id> --store <path>` — View summary
+
+### Discovery
+- `codebatch pipelines` — List available pipelines
+- `codebatch pipeline <name>` — Show pipeline details
+- `codebatch tasks --batch <id> --store <path>` — List tasks in a batch
+- `codebatch shards --batch <id> --task <name> --store <path>` — List shards
+
+### Query
+- `codebatch errors --batch <id> --store <path>` — Show errors
+- `codebatch files --batch <id> --store <path>` — List processed files
+- `codebatch top --batch <id> --store <path>` — Show top results
+
+### Comparison (Phase 6)
+- `codebatch diff <batchA> <batchB> --store <path>` — Compare batches
+- `codebatch regressions <batchA> <batchB> --store <path>` — Find regressions
+- `codebatch improvements <batchA> <batchB> --store <path>` — Find improvements
+- `codebatch inspect <file> --batch <id> --store <path>` — Inspect a file's results
+
+## Constraints
+
+- Python 3.10+
+- All inputs are content-addressed — identical inputs always produce the same snapshot ID
+- Execution is deterministic — re-running the same batch produces identical outputs
+- Filesystem-based — no database required, all state is in the store directory
+- Tasks run in isolated shards — parallelizable by design
+
+## Project Structure
+
+```
+schemas/    JSON Schema definitions for all record types
+src/        Core implementation
+tests/      Test suites and fixtures
+examples/   Usage examples
+```
+
+## Links
+
+- Repository: https://github.com/mcp-tool-shop-org/code-batch
+- Specification: https://github.com/mcp-tool-shop-org/code-batch/blob/main/SPEC.md
+- Issues: https://github.com/mcp-tool-shop-org/code-batch/issues
+
+## License
+
+MIT
