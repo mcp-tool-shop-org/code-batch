@@ -1,7 +1,10 @@
 # CodeBatch
 
-[![CI](https://github.com/mcp-tool-shop-org/code-batch/actions/workflows/ci.yml/badge.svg)](https://github.com/mcp-tool-shop-org/code-batch/actions/workflows/ci.yml)
-![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+<p align="center">
+  <a href="https://github.com/mcp-tool-shop-org/code-batch/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mcp-tool-shop-org/code-batch/ci.yml?branch=main&style=flat-square&label=CI" alt="CI"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/mcp-tool-shop-org/code-batch?style=flat-square" alt="License"></a>
+</p>
 
 Content-addressed batch execution engine with deterministic sharding and queryable outputs.
 
