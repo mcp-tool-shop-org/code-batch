@@ -1,5 +1,8 @@
 # CodeBatch
 
+[![CI](https://github.com/mcp-tool-shop-org/code-batch/actions/workflows/ci.yml/badge.svg)](https://github.com/mcp-tool-shop-org/code-batch/actions/workflows/ci.yml)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+
 Content-addressed batch execution engine with deterministic sharding and queryable outputs.
 
 ## Overview
