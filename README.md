@@ -146,6 +146,11 @@ codebatch query diagnostics --batch <id> --task 01_parse --store ./store
 codebatch index-build --batch <id> --store ./store
 ```
 
+## Support
+
+- **Questions / help:** [Discussions](https://github.com/mcp-tool-shop-org/code-batch/discussions)
+- **Bug reports:** [Issues](https://github.com/mcp-tool-shop-org/code-batch/issues)
+
 ## License
 
 MIT
