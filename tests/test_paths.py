@@ -1,7 +1,6 @@
 """Tests for path canonicalization and safety."""
 
 import pytest
-from pathlib import Path
 
 from codebatch.paths import (
     canonicalize_path,

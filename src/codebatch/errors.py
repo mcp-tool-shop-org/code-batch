@@ -159,7 +159,9 @@ def batch_not_found(batch_id: str, store: Optional[str] = None) -> CodeBatchErro
         code=BATCH_NOT_FOUND,
         message=f"Batch not found: {batch_id}",
         hints=hints,
-        details={"batch_id": batch_id, "store": store} if store else {"batch_id": batch_id},
+        details={"batch_id": batch_id, "store": store}
+        if store
+        else {"batch_id": batch_id},
     )
 
 
@@ -172,7 +174,9 @@ def snapshot_not_found(snapshot_id: str, store: Optional[str] = None) -> CodeBat
         code=SNAPSHOT_NOT_FOUND,
         message=f"Snapshot not found: {snapshot_id}",
         hints=hints,
-        details={"snapshot_id": snapshot_id, "store": store} if store else {"snapshot_id": snapshot_id},
+        details={"snapshot_id": snapshot_id, "store": store}
+        if store
+        else {"snapshot_id": snapshot_id},
     )
 
 

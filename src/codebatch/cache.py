@@ -19,10 +19,7 @@ import lmdb
 import msgpack
 
 from .cache_meta import (
-    CACHE_SCHEMA_VERSION,
     CacheMeta,
-    compute_source_fingerprint,
-    create_cache_meta,
     is_cache_valid,
     make_cache_key,
     parse_cache_key,
@@ -214,12 +211,14 @@ class CacheWriter:
             obj_prefix: First 2 hex chars of object hash.
         """
         key = make_cache_key(snapshot_id, path)
-        value = msgpack.packb({
-            "lang": lang_hint,
-            "size": size,
-            "path_key": path_key,
-            "obj_prefix": obj_prefix,
-        })
+        value = msgpack.packb(
+            {
+                "lang": lang_hint,
+                "size": size,
+                "path_key": path_key,
+                "obj_prefix": obj_prefix,
+            }
+        )
 
         with self.env.begin(write=True) as txn:
             txn.put(key, value, db=self.env.get_dbi(DBI_FILES_BY_PATH))
@@ -296,14 +295,12 @@ class CacheWriter:
 
         # Index by severity
         key_sev = make_cache_key(
-            snapshot_id, batch_id, task_id, severity, code, path,
-            str(line), str(col)
+            snapshot_id, batch_id, task_id, severity, code, path, str(line), str(col)
         )
 
         # Index by code
         key_code = make_cache_key(
-            snapshot_id, batch_id, task_id, code, severity, path,
-            str(line), str(col)
+            snapshot_id, batch_id, task_id, code, severity, path, str(line), str(col)
         )
 
         with self.env.begin(write=True) as txn:

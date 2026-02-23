@@ -74,6 +74,7 @@ class QueryEngine:
         # Try to open cache
         try:
             from .cache import try_open_cache
+
             reader = try_open_cache(self.store_root, batch_id)
             if reader is not None:
                 self._cache_reader = reader
@@ -98,9 +99,7 @@ class QueryEngine:
             batch = json.load(f)
         return batch.get("snapshot_id")
 
-    def _iter_shard_outputs(
-        self, batch_id: str, task_id: str
-    ) -> Iterator[dict]:
+    def _iter_shard_outputs(self, batch_id: str, task_id: str) -> Iterator[dict]:
         """Iterate over all output records for a task.
 
         Args:
@@ -159,7 +158,9 @@ class QueryEngine:
             )
 
         # Fall back to JSONL scan
-        return self._query_diagnostics_scan(batch_id, task_id, severity, code, path_pattern)
+        return self._query_diagnostics_scan(
+            batch_id, task_id, severity, code, path_pattern
+        )
 
     def _query_diagnostics_cached(
         self,
@@ -181,7 +182,10 @@ class QueryEngine:
         ):
             if code and record.get("code") != code:
                 continue
-            if path_pattern and path_pattern.lower() not in record.get("path", "").lower():
+            if (
+                path_pattern
+                and path_pattern.lower() not in record.get("path", "").lower()
+            ):
                 continue
             results.append(record)
         return results
@@ -207,7 +211,10 @@ class QueryEngine:
             if code and record.get("code") != code:
                 continue
 
-            if path_pattern and path_pattern.lower() not in record.get("path", "").lower():
+            if (
+                path_pattern
+                and path_pattern.lower() not in record.get("path", "").lower()
+            ):
                 continue
 
             results.append(record)
@@ -261,7 +268,10 @@ class QueryEngine:
         for record in cache_reader.iter_outputs_by_kind(
             snapshot_id, batch_id, task_id, kind
         ):
-            if path_pattern and path_pattern.lower() not in record.get("path", "").lower():
+            if (
+                path_pattern
+                and path_pattern.lower() not in record.get("path", "").lower()
+            ):
                 continue
             results.append(record)
         return results
@@ -280,7 +290,10 @@ class QueryEngine:
             if kind and record.get("kind") != kind:
                 continue
 
-            if path_pattern and path_pattern.lower() not in record.get("path", "").lower():
+            if (
+                path_pattern
+                and path_pattern.lower() not in record.get("path", "").lower()
+            ):
                 continue
 
             results.append(record)
@@ -326,7 +339,9 @@ class QueryEngine:
             return {}
 
         result = {}
-        for value, count in cache_reader.iter_stats(snapshot_id, batch_id, task_id, group_by):
+        for value, count in cache_reader.iter_stats(
+            snapshot_id, batch_id, task_id, group_by
+        ):
             result[value] = count
         return result
 
@@ -344,6 +359,7 @@ class QueryEngine:
             return {}
 
         from .snapshot import SnapshotBuilder
+
         builder = SnapshotBuilder(self.store_root)
         lang_map = {}
         try:
@@ -388,9 +404,7 @@ class QueryEngine:
 
         return dict(counter)
 
-    def query_failed_files(
-        self, batch_id: str, task_id: str
-    ) -> list[str]:
+    def query_failed_files(self, batch_id: str, task_id: str) -> list[str]:
         """Get paths of files that produced error diagnostics.
 
         Args:

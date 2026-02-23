@@ -8,7 +8,6 @@ Tests cover:
 - Pipeline listing
 """
 
-import json
 import pytest
 from pathlib import Path
 
@@ -149,7 +148,7 @@ class TestWorkflowRunner:
         def on_complete(b, t, s, state):
             completed.append((b, t, s, state["status"]))
 
-        result = runner.run(
+        runner.run(
             batch_id,
             on_shard_start=on_start,
             on_shard_complete=on_complete,

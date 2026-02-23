@@ -1,6 +1,5 @@
 """Tests for snapshot builder."""
 
-import json
 import pytest
 from pathlib import Path
 
@@ -87,8 +86,8 @@ class TestSnapshotBuilder:
         """Can list all snapshots."""
         builder = SnapshotBuilder(store)
 
-        id1 = builder.build(corpus_dir, snapshot_id="snap-1")
-        id2 = builder.build(corpus_dir, snapshot_id="snap-2")
+        builder.build(corpus_dir, snapshot_id="snap-1")
+        builder.build(corpus_dir, snapshot_id="snap-2")
 
         snapshots = builder.list_snapshots()
         assert set(snapshots) == {"snap-1", "snap-2"}

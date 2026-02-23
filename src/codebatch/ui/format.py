@@ -147,7 +147,8 @@ def render_table(
     sorted_rows = list(rows)
     if sort_key:
         if isinstance(sort_key, str):
-            key_fn = lambda r: (r.get(sort_key, "") or "")
+            def key_fn(r):
+                return r.get(sort_key, "") or ""
         else:
             key_fn = sort_key
         sorted_rows.sort(key=key_fn)
@@ -260,7 +261,8 @@ def render_jsonl(
     sorted_records = list(records)
     if sort_key:
         if isinstance(sort_key, str):
-            key_fn = lambda r: (r.get(sort_key, "") or "")
+            def key_fn(r):
+                return r.get(sort_key, "") or ""
         else:
             key_fn = sort_key
         sorted_records.sort(key=key_fn)
@@ -326,9 +328,7 @@ def format_path(path: str, color_mode: ColorMode = ColorMode.AUTO) -> str:
     return colorize(path, "cyan", color_mode)
 
 
-def format_severity(
-    severity: str, color_mode: ColorMode = ColorMode.AUTO
-) -> str:
+def format_severity(severity: str, color_mode: ColorMode = ColorMode.AUTO) -> str:
     """Format a severity level with color.
 
     Args:
@@ -374,12 +374,8 @@ def verify_deterministic_table(
     Raises:
         AssertionError: If outputs differ.
     """
-    output1 = render_table(
-        rows, columns, sort_key=sort_key, color_mode=ColorMode.NEVER
-    )
-    output2 = render_table(
-        rows, columns, sort_key=sort_key, color_mode=ColorMode.NEVER
-    )
+    output1 = render_table(rows, columns, sort_key=sort_key, color_mode=ColorMode.NEVER)
+    output2 = render_table(rows, columns, sort_key=sort_key, color_mode=ColorMode.NEVER)
     assert output1 == output2, "Table rendering is not deterministic"
     return True
 
@@ -438,5 +434,6 @@ def strip_ansi(text: str) -> str:
         Text with ANSI codes removed.
     """
     import re
-    ansi_pattern = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_pattern.sub('', text)
+
+    ansi_pattern = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_pattern.sub("", text)

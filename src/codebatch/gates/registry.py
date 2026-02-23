@@ -4,7 +4,7 @@ The registry is the single source of truth for all gate definitions.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 import difflib
 
 from .result import GateContext, GateResult, GateStatus
@@ -137,9 +137,7 @@ class GateRegistry:
         matches = difflib.get_close_matches(unknown_id, all_ids, n=limit, cutoff=0.4)
         return matches
 
-    def validate_inputs(
-        self, gate: GateDefinition, ctx: GateContext
-    ) -> list[str]:
+    def validate_inputs(self, gate: GateDefinition, ctx: GateContext) -> list[str]:
         """Validate that required inputs are present.
 
         Args:

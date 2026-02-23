@@ -2,7 +2,6 @@
 
 import pytest
 from pathlib import Path
-import tempfile
 import hashlib
 
 from codebatch.cas import ObjectStore, ObjectNotFoundError
@@ -79,7 +78,9 @@ class TestObjectStore:
         object_ref = store.put_bytes(data)
 
         # SHA-256 of empty string is well-known
-        expected = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        expected = (
+            "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
         assert object_ref == expected
         assert store.get_bytes(object_ref) == data
 

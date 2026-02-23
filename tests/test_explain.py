@@ -92,7 +92,9 @@ class TestExplainCommand:
 class TestExplainFidelity:
     """Tests for P6-EXPLAIN gate: explain fidelity."""
 
-    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements", "summary"])
+    @pytest.mark.parametrize(
+        "command", ["inspect", "diff", "regressions", "improvements", "summary"]
+    )
     def test_lists_output_kinds(self, command):
         """Explain should list which output kinds are used."""
         info = get_explain_info(command)
@@ -101,7 +103,9 @@ class TestExplainFidelity:
         assert isinstance(info["output_kinds_used"], list)
         assert len(info["output_kinds_used"]) > 0
 
-    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements", "summary"])
+    @pytest.mark.parametrize(
+        "command", ["inspect", "diff", "regressions", "improvements", "summary"]
+    )
     def test_lists_tasks_referenced(self, command):
         """Explain should describe which tasks are referenced."""
         info = get_explain_info(command)
@@ -109,20 +113,28 @@ class TestExplainFidelity:
         assert "tasks_referenced" in info
         assert info["tasks_referenced"]  # Not empty
 
-    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements", "summary"])
+    @pytest.mark.parametrize(
+        "command", ["inspect", "diff", "regressions", "improvements", "summary"]
+    )
     def test_does_not_mention_events(self, command):
         """Explain should NOT mention events as a dependency."""
         info = get_explain_info(command)
 
         # Check data_sources - should not include events
         for src in info.get("data_sources", []):
-            assert "event" not in src.lower(), f"Events mentioned in data_sources: {src}"
+            assert "event" not in src.lower(), (
+                f"Events mentioned in data_sources: {src}"
+            )
 
         # Check notes - should explicitly say "Does NOT use events"
         notes_text = " ".join(info.get("notes", []))
-        assert "does not use events" in notes_text.lower(), "Should explicitly state events are not used"
+        assert "does not use events" in notes_text.lower(), (
+            "Should explicitly state events are not used"
+        )
 
-    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements", "summary"])
+    @pytest.mark.parametrize(
+        "command", ["inspect", "diff", "regressions", "improvements", "summary"]
+    )
     def test_lists_data_sources(self, command):
         """Explain should list data sources."""
         info = get_explain_info(command)
@@ -131,7 +143,9 @@ class TestExplainFidelity:
         assert isinstance(info["data_sources"], list)
         assert len(info["data_sources"]) > 0
 
-    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements", "summary"])
+    @pytest.mark.parametrize(
+        "command", ["inspect", "diff", "regressions", "improvements", "summary"]
+    )
     def test_explains_filters(self, command):
         """Explain should describe available filters."""
         info = get_explain_info(command)
@@ -139,7 +153,9 @@ class TestExplainFidelity:
         assert "filters" in info
         assert isinstance(info["filters"], list)
 
-    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements", "summary"])
+    @pytest.mark.parametrize(
+        "command", ["inspect", "diff", "regressions", "improvements", "summary"]
+    )
     def test_deterministic_output(self, command):
         """Explain output should be identical across runs."""
         info1 = get_explain_info(command)
@@ -319,7 +335,9 @@ class TestExplainEventsIndependence:
             "explain should explicitly state that events are NOT used"
         )
 
-    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements"])
+    @pytest.mark.parametrize(
+        "command", ["inspect", "diff", "regressions", "improvements"]
+    )
     def test_explain_never_mentions_events_in_data_sources(self, command):
         """Explain data_sources should never mention events."""
         info = get_explain_info(command)

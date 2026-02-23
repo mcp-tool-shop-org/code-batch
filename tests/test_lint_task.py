@@ -173,11 +173,17 @@ class TestLintExecutor:
     def test_produces_diagnostics(self, clean_store: Path, corpus_dir: Path):
         """Lint task produces diagnostic records."""
         from codebatch.batch import PIPELINES
+
         PIPELINES["parse_lint"] = {
             "description": "Parse and lint",
             "tasks": [
                 {"task_id": "01_parse", "type": "parse", "config": {}},
-                {"task_id": "04_lint", "type": "lint", "depends_on": ["01_parse"], "config": {}},
+                {
+                    "task_id": "04_lint",
+                    "type": "lint",
+                    "depends_on": ["01_parse"],
+                    "config": {},
+                },
             ],
         }
 
@@ -201,14 +207,22 @@ class TestLintExecutor:
         for o in outputs:
             assert o.get("kind") == "diagnostic"
 
-    def test_diagnostics_have_required_fields(self, clean_store: Path, corpus_dir: Path):
+    def test_diagnostics_have_required_fields(
+        self, clean_store: Path, corpus_dir: Path
+    ):
         """Diagnostic records have all required fields."""
         from codebatch.batch import PIPELINES
+
         PIPELINES["parse_lint"] = {
             "description": "Parse and lint",
             "tasks": [
                 {"task_id": "01_parse", "type": "parse", "config": {}},
-                {"task_id": "04_lint", "type": "lint", "depends_on": ["01_parse"], "config": {}},
+                {
+                    "task_id": "04_lint",
+                    "type": "lint",
+                    "depends_on": ["01_parse"],
+                    "config": {},
+                },
             ],
         }
 
@@ -239,11 +253,17 @@ class TestLintExecutor:
     def test_deterministic_outputs(self, clean_store: Path, corpus_dir: Path):
         """Lint outputs are deterministic across runs."""
         from codebatch.batch import PIPELINES
+
         PIPELINES["parse_lint"] = {
             "description": "Parse and lint",
             "tasks": [
                 {"task_id": "01_parse", "type": "parse", "config": {}},
-                {"task_id": "04_lint", "type": "lint", "depends_on": ["01_parse"], "config": {}},
+                {
+                    "task_id": "04_lint",
+                    "type": "lint",
+                    "depends_on": ["01_parse"],
+                    "config": {},
+                },
             ],
         }
 
@@ -253,7 +273,9 @@ class TestLintExecutor:
         batch_manager = BatchManager(clean_store)
 
         # Run 1
-        batch_id_1 = batch_manager.init_batch(snapshot_id, "parse_lint", batch_id="batch-lint-1")
+        batch_id_1 = batch_manager.init_batch(
+            snapshot_id, "parse_lint", batch_id="batch-lint-1"
+        )
         runner1 = ShardRunner(clean_store)
         records = snapshot_builder.load_file_index(snapshot_id)
         shard_id = object_shard_prefix(records[0]["object"])
@@ -263,7 +285,9 @@ class TestLintExecutor:
         outputs_1 = runner1.get_shard_outputs(batch_id_1, "04_lint", shard_id)
 
         # Run 2
-        batch_id_2 = batch_manager.init_batch(snapshot_id, "parse_lint", batch_id="batch-lint-2")
+        batch_id_2 = batch_manager.init_batch(
+            snapshot_id, "parse_lint", batch_id="batch-lint-2"
+        )
         runner2 = ShardRunner(clean_store)
 
         runner2.run_shard(batch_id_2, "01_parse", shard_id, parse_executor)
@@ -272,10 +296,12 @@ class TestLintExecutor:
 
         # Compare (ignore timestamps and batch-specific fields)
         def normalize(outputs):
-            return sorted([
-                (o["kind"], o["path"], o["code"], o["line"], o.get("col", 0))
-                for o in outputs
-            ])
+            return sorted(
+                [
+                    (o["kind"], o["path"], o["code"], o["line"], o.get("col", 0))
+                    for o in outputs
+                ]
+            )
 
         assert normalize(outputs_1) == normalize(outputs_2)
 
@@ -286,11 +312,17 @@ class TestLintIntegration:
     def test_query_diagnostics_by_severity(self, clean_store: Path, corpus_dir: Path):
         """Can query diagnostics grouped by severity."""
         from codebatch.batch import PIPELINES
+
         PIPELINES["parse_lint"] = {
             "description": "Parse and lint",
             "tasks": [
                 {"task_id": "01_parse", "type": "parse", "config": {}},
-                {"task_id": "04_lint", "type": "lint", "depends_on": ["01_parse"], "config": {}},
+                {
+                    "task_id": "04_lint",
+                    "type": "lint",
+                    "depends_on": ["01_parse"],
+                    "config": {},
+                },
             ],
         }
 
@@ -323,11 +355,17 @@ class TestLintIntegration:
     def test_query_diagnostics_by_code(self, clean_store: Path, corpus_dir: Path):
         """Can query diagnostics grouped by code."""
         from codebatch.batch import PIPELINES
+
         PIPELINES["parse_lint"] = {
             "description": "Parse and lint",
             "tasks": [
                 {"task_id": "01_parse", "type": "parse", "config": {}},
-                {"task_id": "04_lint", "type": "lint", "depends_on": ["01_parse"], "config": {}},
+                {
+                    "task_id": "04_lint",
+                    "type": "lint",
+                    "depends_on": ["01_parse"],
+                    "config": {},
+                },
             ],
         }
 

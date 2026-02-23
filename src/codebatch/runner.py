@@ -10,7 +10,7 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Iterable, Iterator, Optional, Union
+from typing import Callable, Iterable, Iterator, Optional
 
 from .batch import BatchManager
 from .cas import ObjectStore
@@ -50,7 +50,15 @@ class ShardRunner:
 
     def _shard_dir(self, batch_id: str, task_id: str, shard_id: str) -> Path:
         """Get the shard directory path."""
-        return self.store_root / "batches" / batch_id / "tasks" / task_id / "shards" / shard_id
+        return (
+            self.store_root
+            / "batches"
+            / batch_id
+            / "tasks"
+            / task_id
+            / "shards"
+            / shard_id
+        )
 
     def _load_state(self, batch_id: str, task_id: str, shard_id: str) -> dict:
         """Load shard state."""
@@ -58,7 +66,9 @@ class ShardRunner:
         with open(state_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    def _save_state(self, batch_id: str, task_id: str, shard_id: str, state: dict) -> None:
+    def _save_state(
+        self, batch_id: str, task_id: str, shard_id: str, state: dict
+    ) -> None:
         """Save shard state atomically."""
         shard_dir = self._shard_dir(batch_id, task_id, shard_id)
         state_path = shard_dir / "state.json"
@@ -106,9 +116,7 @@ class ShardRunner:
             f.write(json.dumps(record, separators=(",", ":")))
             f.write("\n")
 
-    def _iter_shard_files(
-        self, snapshot_id: str, shard_id: str
-    ) -> Iterator[dict]:
+    def _iter_shard_files(self, snapshot_id: str, shard_id: str) -> Iterator[dict]:
         """Stream files assigned to a shard based on hash prefix.
 
         Files are assigned to shards based on the first two hex chars of their object hash.
@@ -127,9 +135,7 @@ class ShardRunner:
             if obj_shard == shard_id:
                 yield record
 
-    def _get_shard_files(
-        self, snapshot_id: str, shard_id: str
-    ) -> list[dict]:
+    def _get_shard_files(self, snapshot_id: str, shard_id: str) -> list[dict]:
         """Get files assigned to a shard based on hash prefix.
 
         Files are assigned to shards based on the first two hex chars of their object hash.
@@ -218,7 +224,9 @@ class ShardRunner:
 
             # Get files for this shard as streaming iterator with counting
             # Executors that need random access should materialize with list()
-            shard_files = _CountingIterator(self._iter_shard_files(snapshot_id, shard_id))
+            shard_files = _CountingIterator(
+                self._iter_shard_files(snapshot_id, shard_id)
+            )
 
             # Enrich config with execution context for tasks that need it
             # (e.g., symbols task needs batch_id/shard_id for iter_prior_outputs)
@@ -327,7 +335,9 @@ class ShardRunner:
         state = self._load_state(batch_id, task_id, shard_id)
 
         if state["status"] != "failed":
-            raise ValueError(f"Can only reset failed shards, current status: {state['status']}")
+            raise ValueError(
+                f"Can only reset failed shards, current status: {state['status']}"
+            )
 
         # Keep attempt counter for tracking
         attempt = state.get("attempt", 0)
@@ -346,7 +356,9 @@ class ShardRunner:
         self._save_state(batch_id, task_id, shard_id, new_state)
 
         # Log retry event
-        task_events_path = self._shard_dir(batch_id, task_id, shard_id).parent.parent / "events.jsonl"
+        task_events_path = (
+            self._shard_dir(batch_id, task_id, shard_id).parent.parent / "events.jsonl"
+        )
         self._append_event(
             task_events_path,
             "shard_retrying",
@@ -358,7 +370,9 @@ class ShardRunner:
 
         return new_state
 
-    def get_shard_outputs(self, batch_id: str, task_id: str, shard_id: str) -> list[dict]:
+    def get_shard_outputs(
+        self, batch_id: str, task_id: str, shard_id: str
+    ) -> list[dict]:
         """Get output records for a shard.
 
         Args:
@@ -369,7 +383,9 @@ class ShardRunner:
         Returns:
             List of output records.
         """
-        outputs_path = self._shard_dir(batch_id, task_id, shard_id) / "outputs.index.jsonl"
+        outputs_path = (
+            self._shard_dir(batch_id, task_id, shard_id) / "outputs.index.jsonl"
+        )
         if not outputs_path.exists():
             return []
 
@@ -405,7 +421,9 @@ class ShardRunner:
         Raises:
             FileNotFoundError: If the dependency task shard doesn't exist.
         """
-        outputs_path = self._shard_dir(batch_id, task_id, shard_id) / "outputs.index.jsonl"
+        outputs_path = (
+            self._shard_dir(batch_id, task_id, shard_id) / "outputs.index.jsonl"
+        )
         if not outputs_path.exists():
             return
 
@@ -466,7 +484,9 @@ class ShardRunner:
         temp_outputs_path.replace(outputs_path)
         return outputs_written
 
-    def check_deps_complete(self, batch_id: str, task_id: str, shard_id: str) -> tuple[bool, list[str]]:
+    def check_deps_complete(
+        self, batch_id: str, task_id: str, shard_id: str
+    ) -> tuple[bool, list[str]]:
         """Check if all dependencies for a task are complete in this shard.
 
         Args:

@@ -130,7 +130,10 @@ class TestGateListCommand:
         assert result.exit_code == 0
         assert "ENFORCED" in result.output
         # HARNESS gates should not appear when filtering ENFORCED
-        assert "P2-G7" not in result.output or "HARNESS" not in result.output.split("P2-G7")[0]
+        assert (
+            "P2-G7" not in result.output
+            or "HARNESS" not in result.output.split("P2-G7")[0]
+        )
 
     def test_list_by_tag(self, cli_runner):
         """Should filter by tag."""
@@ -149,9 +152,7 @@ class TestGateRunCommand:
         """Should run a gate and show results."""
         store, batch_id = store_with_batch
 
-        result = cli_runner.invoke(
-            ["gate-run", "P1-G1", "--store", str(store)]
-        )
+        result = cli_runner.invoke(["gate-run", "P1-G1", "--store", str(store)])
 
         assert result.exit_code == 0
         assert "P1-G1" in result.output
@@ -186,9 +187,7 @@ class TestGateRunCommand:
         """Should error on unknown gate with suggestions."""
         store, batch_id = store_with_batch
 
-        result = cli_runner.invoke(
-            ["gate-run", "P3-A", "--store", str(store)]
-        )
+        result = cli_runner.invoke(["gate-run", "P3-A", "--store", str(store)])
 
         # Should fail with error
         assert result.exit_code != 0
@@ -215,9 +214,7 @@ class TestGateBundleCommand:
         """Should run phase1 bundle."""
         store, batch_id = store_with_batch
 
-        result = cli_runner.invoke(
-            ["gate-bundle", "phase1", "--store", str(store)]
-        )
+        result = cli_runner.invoke(["gate-bundle", "phase1", "--store", str(store)])
 
         assert result.exit_code == 0
         assert "phase1" in result.output.lower()
@@ -326,9 +323,7 @@ class TestGateExitCodes:
         """Should exit 0 when gate passes."""
         store, batch_id = store_with_batch
 
-        result = cli_runner.invoke(
-            ["gate-run", "P1-G1", "--store", str(store)]
-        )
+        result = cli_runner.invoke(["gate-run", "P1-G1", "--store", str(store)])
 
         assert result.exit_code == 0
 
@@ -336,8 +331,6 @@ class TestGateExitCodes:
         """Should exit 0 when bundle passes."""
         store, batch_id = store_with_batch
 
-        result = cli_runner.invoke(
-            ["gate-bundle", "phase1", "--store", str(store)]
-        )
+        result = cli_runner.invoke(["gate-bundle", "phase1", "--store", str(store)])
 
         assert result.exit_code == 0

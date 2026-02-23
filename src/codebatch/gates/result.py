@@ -5,13 +5,11 @@ Defines the structured output format for gate runs.
 
 import platform
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 import json
-
-from ..common import SCHEMA_VERSION
 
 
 class GateStatus(Enum):
@@ -84,6 +82,7 @@ class GateContext:
         """
         if not self.run_id:
             import uuid
+
             self.run_id = str(uuid.uuid4())[:8]
 
         artifact_dir = (

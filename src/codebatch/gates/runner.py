@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from .registry import get_gate, get_registry, GateDefinition
+from .registry import get_registry, GateDefinition
 from .result import GateContext, GateResult, GateStatus, BundleResult
 
 # Ensure gates are registered
@@ -69,9 +69,7 @@ class GateRunner:
         # Validate required inputs
         missing = self.registry.validate_inputs(gate, ctx)
         if missing:
-            raise ValueError(
-                f"Gate '{gate.gate_id}' requires: {', '.join(missing)}"
-            )
+            raise ValueError(f"Gate '{gate.gate_id}' requires: {', '.join(missing)}")
 
         # Execute with timing
         start = time.perf_counter()
@@ -159,7 +157,7 @@ class GateRunner:
                     if fail_fast:
                         break
 
-            except ValueError as e:
+            except ValueError:
                 # Missing inputs - skip this gate
                 skipped_count += 1
                 continue
@@ -168,8 +166,7 @@ class GateRunner:
 
         # Bundle passes if no ENFORCED gates failed
         enforced_failures = sum(
-            1 for r in results
-            if not r.passed and r.status == GateStatus.ENFORCED
+            1 for r in results if not r.passed and r.status == GateStatus.ENFORCED
         )
         bundle_passed = enforced_failures == 0
 

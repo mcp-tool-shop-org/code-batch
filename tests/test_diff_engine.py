@@ -3,9 +3,6 @@
 Tests for pure set-math comparison functions.
 """
 
-import pytest
-from pathlib import Path
-
 from codebatch.ui.diff import (
     DiffResult,
     DiagnosticDelta,
@@ -166,10 +163,24 @@ class TestDiffSets:
     def test_changed_records(self):
         """Should detect changed records (same key, different values)."""
         set_a = [
-            {"kind": "diagnostic", "path": "test.py", "line": 1, "column": 0, "code": "E001", "severity": "warning"},
+            {
+                "kind": "diagnostic",
+                "path": "test.py",
+                "line": 1,
+                "column": 0,
+                "code": "E001",
+                "severity": "warning",
+            },
         ]
         set_b = [
-            {"kind": "diagnostic", "path": "test.py", "line": 1, "column": 0, "code": "E001", "severity": "error"},
+            {
+                "kind": "diagnostic",
+                "path": "test.py",
+                "line": 1,
+                "column": 0,
+                "code": "E001",
+                "severity": "error",
+            },
         ]
 
         result = diff_sets(set_a, set_b)
@@ -184,10 +195,24 @@ class TestDiffSets:
     def test_ignores_timestamps(self):
         """Should ignore timestamps when comparing."""
         set_a = [
-            {"kind": "diagnostic", "path": "test.py", "line": 1, "column": 0, "code": "E001", "ts": "2024-01-01"},
+            {
+                "kind": "diagnostic",
+                "path": "test.py",
+                "line": 1,
+                "column": 0,
+                "code": "E001",
+                "ts": "2024-01-01",
+            },
         ]
         set_b = [
-            {"kind": "diagnostic", "path": "test.py", "line": 1, "column": 0, "code": "E001", "ts": "2024-01-02"},
+            {
+                "kind": "diagnostic",
+                "path": "test.py",
+                "line": 1,
+                "column": 0,
+                "code": "E001",
+                "ts": "2024-01-02",
+            },
         ]
 
         result = diff_sets(set_a, set_b)
@@ -201,9 +226,27 @@ class TestDiffSets:
         """Results should be sorted deterministically."""
         set_a = []
         set_b = [
-            {"kind": "diagnostic", "path": "z.py", "line": 1, "column": 0, "code": "E003"},
-            {"kind": "diagnostic", "path": "a.py", "line": 1, "column": 0, "code": "E001"},
-            {"kind": "diagnostic", "path": "m.py", "line": 1, "column": 0, "code": "E002"},
+            {
+                "kind": "diagnostic",
+                "path": "z.py",
+                "line": 1,
+                "column": 0,
+                "code": "E003",
+            },
+            {
+                "kind": "diagnostic",
+                "path": "a.py",
+                "line": 1,
+                "column": 0,
+                "code": "E001",
+            },
+            {
+                "kind": "diagnostic",
+                "path": "m.py",
+                "line": 1,
+                "column": 0,
+                "code": "E002",
+            },
         ]
 
         result = diff_sets(set_a, set_b)

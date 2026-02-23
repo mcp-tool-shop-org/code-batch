@@ -14,7 +14,13 @@ import pytest
 from pathlib import Path
 from typing import Set
 
-from codebatch.cli import cmd_inspect, cmd_diff, cmd_regressions, cmd_improvements, cmd_explain
+from codebatch.cli import (
+    cmd_inspect,
+    cmd_diff,
+    cmd_regressions,
+    cmd_improvements,
+    cmd_explain,
+)
 from codebatch.store import init_store
 from codebatch.snapshot import SnapshotBuilder
 from codebatch.batch import BatchManager
@@ -341,7 +347,12 @@ class TestGateP6RO:
         after_mtimes = capture_store_mtimes(store)
 
         assert_store_unchanged(
-            store, before_paths, after_paths, before_mtimes, after_mtimes, "improvements"
+            store,
+            before_paths,
+            after_paths,
+            before_mtimes,
+            after_mtimes,
+            "improvements",
         )
 
 
@@ -438,7 +449,9 @@ class TestGateP6Headless:
 class TestGateP6Explain:
     """P6-EXPLAIN gate: --explain must accurately describe data sources."""
 
-    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements"])
+    @pytest.mark.parametrize(
+        "command", ["inspect", "diff", "regressions", "improvements"]
+    )
     def test_explain_does_not_mention_events(self, command, capsys):
         """--explain should NOT mention events as a dependency."""
         args = MockArgs(subcommand=command, json=False)
@@ -448,9 +461,13 @@ class TestGateP6Explain:
         output_lower = captured.out.lower()
 
         # Should explicitly state events are not used
-        assert "does not use events" in output_lower, "Explain should state events not used"
+        assert "does not use events" in output_lower, (
+            "Explain should state events not used"
+        )
 
-    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements"])
+    @pytest.mark.parametrize(
+        "command", ["inspect", "diff", "regressions", "improvements"]
+    )
     def test_explain_lists_output_kinds(self, command, capsys):
         """--explain should list output kinds used."""
         args = MockArgs(subcommand=command, json=True)
@@ -462,7 +479,9 @@ class TestGateP6Explain:
         assert "output_kinds_used" in info
         assert len(info["output_kinds_used"]) > 0
 
-    @pytest.mark.parametrize("command", ["inspect", "diff", "regressions", "improvements"])
+    @pytest.mark.parametrize(
+        "command", ["inspect", "diff", "regressions", "improvements"]
+    )
     def test_explain_deterministic(self, command, capsys):
         """--explain output should be identical across runs."""
         args = MockArgs(subcommand=command, json=True)
@@ -484,7 +503,6 @@ class TestGateP6Isolation:
 
     def test_ui_module_importable(self):
         """UI module should be independently importable."""
-        from codebatch import ui
         from codebatch.ui import format
         from codebatch.ui import pager
         from codebatch.ui import diff

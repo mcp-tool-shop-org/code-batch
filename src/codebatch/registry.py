@@ -7,8 +7,8 @@ ensure deterministic, byte-stable output.
 Phase 7: Integration API
 """
 
-from dataclasses import dataclass, field
-from typing import Callable, Optional
+from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass(frozen=True)

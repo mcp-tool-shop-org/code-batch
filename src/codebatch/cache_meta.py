@@ -5,12 +5,10 @@ ensures we can detect when the cache is stale.
 """
 
 import hashlib
-import json
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
-from .common import SCHEMA_VERSION, PRODUCER, utc_now_z
+from .common import PRODUCER, utc_now_z
 
 
 # Cache schema version - bump when cache format changes

@@ -17,7 +17,6 @@ Gate Status Key:
 """
 
 import json
-import os
 import pytest
 from pathlib import Path
 
@@ -63,12 +62,15 @@ def canonicalize_outputs(outputs: list[dict]) -> list[dict]:
         c = {k: v for k, v in o.items() if k != "ts"}
         canonical.append(c)
     # Sort by (kind, path, code/object)
-    return sorted(canonical, key=lambda x: (
-        x.get("kind", ""),
-        x.get("path", ""),
-        x.get("code", ""),
-        x.get("object", ""),
-    ))
+    return sorted(
+        canonical,
+        key=lambda x: (
+            x.get("kind", ""),
+            x.get("path", ""),
+            x.get("code", ""),
+            x.get("object", ""),
+        ),
+    )
 
 
 class TestGate1MultiTaskPipeline:
@@ -95,7 +97,9 @@ class TestGate1MultiTaskPipeline:
         # Run all shards
         for shard_id in shards_with_files:
             state = runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
-            assert state["status"] == "done", f"Shard {shard_id} failed: {state.get('error')}"
+            assert state["status"] == "done", (
+                f"Shard {shard_id} failed: {state.get('error')}"
+            )
 
         # Verify outputs exist
         engine = QueryEngine(clean_store)
@@ -179,7 +183,9 @@ class TestGate1MultiTaskPipeline:
             task_id = task["task_id"]
             if task_id != "01_parse":
                 assert "depends_on" in task, f"{task_id} missing depends_on"
-                assert "01_parse" in task["depends_on"], f"{task_id} should depend on 01_parse"
+                assert "01_parse" in task["depends_on"], (
+                    f"{task_id} should depend on 01_parse"
+                )
 
         # Verify symbols and lint exist
         symbols_task = next((t for t in tasks if t["task_id"] == "03_symbols"), None)
@@ -228,10 +234,10 @@ class TestGate2LogIndependence:
         stats_after = engine.query_stats(batch_id, "01_parse", group_by="kind")
 
         # Compare (canonicalized)
-        assert canonicalize_outputs(outputs_before) == canonicalize_outputs(outputs_after), \
-            "Outputs differ after deleting events"
-        assert stats_before == stats_after, \
-            "Stats differ after deleting events"
+        assert canonicalize_outputs(outputs_before) == canonicalize_outputs(
+            outputs_after
+        ), "Outputs differ after deleting events"
+        assert stats_before == stats_after, "Stats differ after deleting events"
 
 
 class TestGate3CacheDeletionEquivalence:
@@ -270,14 +276,16 @@ class TestGate3CacheDeletionEquivalence:
 
         # Delete cache
         import shutil
+
         shutil.rmtree(indexes_dir)
 
         # Query again
         outputs_after = engine.query_outputs(batch_id, "01_parse")
 
         # Compare
-        assert canonicalize_outputs(outputs_before) == canonicalize_outputs(outputs_after), \
-            "Outputs differ after deleting cache"
+        assert canonicalize_outputs(outputs_before) == canonicalize_outputs(
+            outputs_after
+        ), "Outputs differ after deleting cache"
 
 
 class TestGate4RetryDeterminism:
@@ -286,7 +294,9 @@ class TestGate4RetryDeterminism:
     Per-shard output replacement must produce identical semantic results.
     """
 
-    def test_shard_retry_produces_same_outputs(self, clean_store: Path, corpus_dir: Path):
+    def test_shard_retry_produces_same_outputs(
+        self, clean_store: Path, corpus_dir: Path
+    ):
         """Retrying a shard produces identical outputs."""
         # Setup
         snapshot_builder = SnapshotBuilder(clean_store)
@@ -303,7 +313,16 @@ class TestGate4RetryDeterminism:
 
         # Run 1: clean run
         runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
-        outputs_path = clean_store / "batches" / batch_id / "tasks" / "01_parse" / "shards" / shard_id / "outputs.index.jsonl"
+        outputs_path = (
+            clean_store
+            / "batches"
+            / batch_id
+            / "tasks"
+            / "01_parse"
+            / "shards"
+            / shard_id
+            / "outputs.index.jsonl"
+        )
 
         run1_outputs = []
         with open(outputs_path, "r") as f:
@@ -342,8 +361,9 @@ class TestGate4RetryDeterminism:
         run1_canonical = canonicalize_outputs(run1_outputs)
         run2_canonical = canonicalize_outputs(run2_outputs)
 
-        assert len(run1_canonical) == len(run2_canonical), \
+        assert len(run1_canonical) == len(run2_canonical), (
             f"Output count differs: {len(run1_canonical)} vs {len(run2_canonical)}"
+        )
 
         for i, (o1, o2) in enumerate(zip(run1_canonical, run2_canonical)):
             # Compare kind and path (object refs may differ if not deterministic)
@@ -367,7 +387,16 @@ class TestGate4RetryDeterminism:
         # Run 1
         runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
 
-        outputs_path = clean_store / "batches" / batch_id / "tasks" / "01_parse" / "shards" / shard_id / "outputs.index.jsonl"
+        outputs_path = (
+            clean_store
+            / "batches"
+            / batch_id
+            / "tasks"
+            / "01_parse"
+            / "shards"
+            / shard_id
+            / "outputs.index.jsonl"
+        )
         run1_count = sum(1 for _ in open(outputs_path))
 
         # Reset to ready state
@@ -384,8 +413,9 @@ class TestGate4RetryDeterminism:
         run2_count = sum(1 for _ in open(outputs_path))
 
         # Counts should be same (replacement), not doubled (append)
-        assert run2_count == run1_count, \
+        assert run2_count == run1_count, (
             f"Outputs appear to append ({run2_count}) instead of replace ({run1_count})"
+        )
 
 
 class TestGate5SpecStability:
@@ -414,8 +444,9 @@ class TestGate5SpecStability:
     def test_baseline_hash_committed(self):
         """Baseline hash file exists for enforcement."""
         baseline_path = Path(__file__).parent.parent / ".spec_baseline_hash"
-        assert baseline_path.exists(), \
+        assert baseline_path.exists(), (
             ".spec_baseline_hash not found - run: python scripts/check_spec_protected.py --bootstrap"
+        )
 
 
 class TestGate6TruthStoreValidation:
@@ -453,9 +484,10 @@ class TestGate6TruthStoreValidation:
         top_level = {p.name for p in clean_store.iterdir()}
         unexpected = top_level - ALLOWED_STORE_PATHS
 
-        assert len(unexpected) == 0, \
-            f"Unexpected paths in store root: {unexpected}. " \
+        assert len(unexpected) == 0, (
+            f"Unexpected paths in store root: {unexpected}. "
             f"Phase 2 only allows: {ALLOWED_STORE_PATHS}"
+        )
 
     def test_shard_only_writes_allowed_files(self, clean_store: Path, corpus_dir: Path):
         """Shard directories contain only expected files."""
@@ -468,7 +500,9 @@ class TestGate6TruthStoreValidation:
 
         runner = ShardRunner(clean_store)
         records = snapshot_builder.load_file_index(snapshot_id)
-        shards_with_files = list(set(object_shard_prefix(r["object"]) for r in records))[:3]
+        shards_with_files = list(
+            set(object_shard_prefix(r["object"]) for r in records)
+        )[:3]
 
         for shard_id in shards_with_files:
             runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
@@ -478,15 +512,24 @@ class TestGate6TruthStoreValidation:
 
         # Check each shard directory
         for shard_id in shards_with_files:
-            shard_dir = clean_store / "batches" / batch_id / "tasks" / "01_parse" / "shards" / shard_id
+            shard_dir = (
+                clean_store
+                / "batches"
+                / batch_id
+                / "tasks"
+                / "01_parse"
+                / "shards"
+                / shard_id
+            )
             shard_files = {f.name for f in shard_dir.iterdir() if f.is_file()}
             unexpected = shard_files - allowed_shard_files
 
             # Allow temp files (they should be cleaned up, but tolerate)
             unexpected = {f for f in unexpected if not f.endswith(".tmp")}
 
-            assert len(unexpected) == 0, \
+            assert len(unexpected) == 0, (
                 f"Shard {shard_id} has unexpected files: {unexpected}"
+            )
 
 
 class TestGate7DepsEnforcement:
@@ -512,6 +555,7 @@ class TestGate7DepsEnforcement:
         # Should raise ValueError about dependencies
         with pytest.raises(ValueError, match="dependencies not complete"):
             from codebatch.tasks.analyze import analyze_executor
+
             runner.run_shard(batch_id, "02_analyze", shard_id, analyze_executor)
 
     def test_can_run_task_after_deps(self, clean_store: Path, corpus_dir: Path):
@@ -533,5 +577,6 @@ class TestGate7DepsEnforcement:
 
         # Now 02_analyze should work (it's a stub, but shouldn't error)
         from codebatch.tasks.analyze import analyze_executor
+
         state = runner.run_shard(batch_id, "02_analyze", shard_id, analyze_executor)
         assert state["status"] == "done"

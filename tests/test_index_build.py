@@ -12,7 +12,7 @@ import pytest
 import shutil
 from pathlib import Path
 
-from codebatch.batch import BatchManager, PIPELINES
+from codebatch.batch import BatchManager
 from codebatch.common import object_shard_prefix
 from codebatch.index_build import build_index, iter_shard_outputs
 from codebatch.query import QueryEngine
@@ -164,7 +164,9 @@ class TestDiagnosticsIndexing:
         return Path(__file__).parent / "fixtures" / "corpus_lint"
 
     @pytest.fixture
-    def messy_batch(self, clean_store: Path, messy_corpus_dir: Path) -> tuple[Path, str, str]:
+    def messy_batch(
+        self, clean_store: Path, messy_corpus_dir: Path
+    ) -> tuple[Path, str, str]:
         """Run the full pipeline on messy corpus."""
         # Create snapshot
         snapshot_builder = SnapshotBuilder(clean_store)
@@ -196,7 +198,9 @@ class TestDiagnosticsIndexing:
         stats = build_index(store_root, batch_id)
 
         # Messy corpus should produce diagnostics (TODO, tab indent, long line)
-        assert stats["diagnostics_indexed"] > 0, "Expected diagnostics from messy corpus"
+        assert stats["diagnostics_indexed"] > 0, (
+            "Expected diagnostics from messy corpus"
+        )
 
 
 class TestGateA4TruthStoreGuard:
@@ -327,8 +331,9 @@ class TestGateA1CacheEquivalence:
         scan_canonical = canonicalize_outputs(scan_results)
         cache_canonical = canonicalize_outputs(cache_results)
 
-        assert scan_canonical == cache_canonical, \
+        assert scan_canonical == cache_canonical, (
             f"Cache mismatch for query_outputs: {len(scan_canonical)} scan vs {len(cache_canonical)} cache"
+        )
 
     def test_query_outputs_with_kind_filter_equivalence(self, full_pipeline_batch):
         """query_outputs(kind=X) with cache == without cache."""
@@ -357,7 +362,9 @@ class TestGateA1CacheEquivalence:
 
         # Query without cache
         engine_no_cache = QueryEngine(store_root, use_cache=False)
-        scan_stats = engine_no_cache.query_stats(batch_id, "02_analyze", group_by="kind")
+        scan_stats = engine_no_cache.query_stats(
+            batch_id, "02_analyze", group_by="kind"
+        )
 
         # Build cache
         build_index(store_root, batch_id)
@@ -375,7 +382,9 @@ class TestGateA1CacheEquivalence:
 
         # Query without cache
         engine_no_cache = QueryEngine(store_root, use_cache=False)
-        scan_stats = engine_no_cache.query_stats(batch_id, "02_analyze", group_by="lang")
+        scan_stats = engine_no_cache.query_stats(
+            batch_id, "02_analyze", group_by="lang"
+        )
 
         # Build cache
         build_index(store_root, batch_id)
@@ -405,8 +414,9 @@ class TestGateA1CacheEquivalence:
             scan_canonical = canonicalize_outputs(scan_results)
             cache_canonical = canonicalize_outputs(cache_results)
 
-            assert scan_canonical == cache_canonical, \
+            assert scan_canonical == cache_canonical, (
                 f"Cache mismatch for {task_id}: {len(scan_canonical)} scan vs {len(cache_canonical)} cache"
+            )
 
 
 class TestGateA2CacheDeletionEquivalence:

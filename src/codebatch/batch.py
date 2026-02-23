@@ -153,7 +153,9 @@ class BatchManager:
 
         # Verify pipeline exists
         if pipeline not in PIPELINES:
-            raise ValueError(f"Unknown pipeline: {pipeline}. Available: {list(PIPELINES.keys())}")
+            raise ValueError(
+                f"Unknown pipeline: {pipeline}. Available: {list(PIPELINES.keys())}"
+            )
 
         if batch_id is None:
             batch_id = generate_batch_id()
@@ -326,7 +328,13 @@ class BatchManager:
             Shard state dict.
         """
         state_path = (
-            self.batches_dir / batch_id / "tasks" / task_id / "shards" / shard_id / "state.json"
+            self.batches_dir
+            / batch_id
+            / "tasks"
+            / task_id
+            / "shards"
+            / shard_id
+            / "state.json"
         )
         with open(state_path, "r", encoding="utf-8") as f:
             return json.load(f)

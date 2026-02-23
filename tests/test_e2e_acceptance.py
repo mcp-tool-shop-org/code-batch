@@ -4,9 +4,7 @@ These tests verify the complete workflow from snapshot to query.
 """
 
 import json
-import os
 import pytest
-import shutil
 from pathlib import Path
 
 from codebatch.batch import BatchManager
@@ -68,7 +66,7 @@ class TestCleanRoomRun:
         engine = QueryEngine(clean_store)
 
         # Query diagnostics
-        diagnostics = engine.query_diagnostics(batch_id, "01_parse")
+        engine.query_diagnostics(batch_id, "01_parse")
         # Our corpus has clean files, so may be empty
 
         # Query AST outputs
@@ -102,7 +100,9 @@ class TestCleanRoomRun:
 
         # Delete events.jsonl files
         batch_events = clean_store / "batches" / batch_id / "events.jsonl"
-        task_events = clean_store / "batches" / batch_id / "tasks" / "01_parse" / "events.jsonl"
+        task_events = (
+            clean_store / "batches" / batch_id / "tasks" / "01_parse" / "events.jsonl"
+        )
 
         if batch_events.exists():
             batch_events.unlink()
@@ -149,7 +149,9 @@ class TestChaosResilience:
         state = runner.run_shard(batch_id, "01_parse", shard_id, crashing_executor)
         assert state["status"] == "done"
 
-    def test_duplicate_run_no_semantic_duplicates(self, clean_store: Path, corpus_dir: Path):
+    def test_duplicate_run_no_semantic_duplicates(
+        self, clean_store: Path, corpus_dir: Path
+    ):
         """Running same shard twice doesn't create duplicate outputs."""
         snapshot_builder = SnapshotBuilder(clean_store)
         snapshot_id = snapshot_builder.build(corpus_dir)
@@ -203,8 +205,14 @@ class TestDriftResistance:
         # Add unknown field to ALL output records in ALL shards
         for shard_id in shards_with_files:
             outputs_path = (
-                clean_store / "batches" / batch_id / "tasks" / "01_parse" /
-                "shards" / shard_id / "outputs.index.jsonl"
+                clean_store
+                / "batches"
+                / batch_id
+                / "tasks"
+                / "01_parse"
+                / "shards"
+                / shard_id
+                / "outputs.index.jsonl"
             )
 
             if outputs_path.exists():
@@ -256,7 +264,9 @@ class TestDriftResistance:
 
         # Only one object exists - extract hex hash from sha256:<hex>
         hex_hash = ref1.split(":")[1]
-        object_path = clean_store / "objects" / "sha256" / hex_hash[:2] / hex_hash[2:4] / hex_hash
+        object_path = (
+            clean_store / "objects" / "sha256" / hex_hash[:2] / hex_hash[2:4] / hex_hash
+        )
         assert object_path.exists()
 
 

@@ -291,4 +291,6 @@ class TestInspectOutputOrdering:
                 current_key = (current.get("task_id", ""), current.get("kind", ""))
                 next_key = (next_out.get("task_id", ""), next_out.get("kind", ""))
 
-                assert current_key <= next_key, f"Outputs not sorted: {current_key} > {next_key}"
+                assert current_key <= next_key, (
+                    f"Outputs not sorted: {current_key} > {next_key}"
+                )

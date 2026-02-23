@@ -49,7 +49,9 @@ def simple_executor(config: dict, files: list[dict], runner: ShardRunner) -> lis
     ]
 
 
-def failing_executor(config: dict, files: list[dict], runner: ShardRunner) -> list[dict]:
+def failing_executor(
+    config: dict, files: list[dict], runner: ShardRunner
+) -> list[dict]:
     """Executor that always fails."""
     raise RuntimeError("Intentional failure")
 
@@ -121,7 +123,9 @@ class TestShardRunner:
             call_count[0] += 1
             return simple_executor(config, files, r)
 
-        final_state = runner.run_shard(batch_id, "01_parse", shard_id, counting_executor)
+        final_state = runner.run_shard(
+            batch_id, "01_parse", shard_id, counting_executor
+        )
 
         assert final_state["status"] == "done"
         assert call_count[0] == 0  # Executor was not called
@@ -176,7 +180,9 @@ class TestShardRunner:
         runner.run_shard(batch_id, "01_parse", shard_id, simple_executor)
 
         # Check task events
-        events_path = store / "batches" / batch_id / "tasks" / "01_parse" / "events.jsonl"
+        events_path = (
+            store / "batches" / batch_id / "tasks" / "01_parse" / "events.jsonl"
+        )
         events = []
         with open(events_path, "r") as f:
             for line in f:
@@ -234,9 +240,11 @@ class TestAtomicOutputCommit:
             pass
 
         # State should be failed (KeyboardInterrupt is caught)
-        state = runner._load_state(batch_id, "01_parse", shard_id)
+        runner._load_state(batch_id, "01_parse", shard_id)
         # Note: KeyboardInterrupt might propagate or be caught - check outputs
-        outputs_path = runner._shard_dir(batch_id, "01_parse", shard_id) / "outputs.index.jsonl"
+        outputs_path = (
+            runner._shard_dir(batch_id, "01_parse", shard_id) / "outputs.index.jsonl"
+        )
 
         # The temp file should not have been renamed to outputs
         # (atomic write means no partial outputs)

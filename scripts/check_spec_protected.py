@@ -54,7 +54,7 @@ def bootstrap_baseline(protected_region: str) -> None:
     BASELINE_FILE.write_text(f"{region_hash}\n", encoding="utf-8")
     print(f"OK: Baseline hash written to {BASELINE_FILE}")
     print(f"    Hash: {region_hash[:16]}...")
-    print(f"    Commit this file to lock the protected region.")
+    print("    Commit this file to lock the protected region.")
 
 
 def main():
@@ -83,8 +83,8 @@ def main():
     # Normal mode: compare against baseline
     if not BASELINE_FILE.exists():
         print(f"ERROR: Baseline file {BASELINE_FILE} not found")
-        print(f"       Run with --bootstrap to create it (once, then commit)")
-        print(f"       This is required to enforce SPEC stability.")
+        print("       Run with --bootstrap to create it (once, then commit)")
+        print("       This is required to enforce SPEC stability.")
         sys.exit(1)
 
     baseline_hash = BASELINE_FILE.read_text(encoding="utf-8").strip()
@@ -93,15 +93,17 @@ def main():
         print(f"ERROR: Protected region of {SPEC_FILE} has been modified")
         print(f"\n  Baseline hash: {baseline_hash[:16]}...")
         print(f"  Current hash:  {current_hash[:16]}...")
-        print(f"\nChanges detected in sections 2-8 (store layout, shard rules, truth separation).")
-        print(f"These changes require Phase 3+ and a schema version bump.")
-        print(f"\nAllowed changes:")
-        print(f"  - Adding output kinds (section 9)")
-        print(f"  - Clarifying plan deps (section 7)")
-        print(f"  - Adding new schema files")
-        print(f"\nIf this change is intentional (Phase 3+):")
-        print(f"  1. Bump schema_version in common.py")
-        print(f"  2. Run: python scripts/check_spec_protected.py --bootstrap")
+        print(
+            "\nChanges detected in sections 2-8 (store layout, shard rules, truth separation)."
+        )
+        print("These changes require Phase 3+ and a schema version bump.")
+        print("\nAllowed changes:")
+        print("  - Adding output kinds (section 9)")
+        print("  - Clarifying plan deps (section 7)")
+        print("  - Adding new schema files")
+        print("\nIf this change is intentional (Phase 3+):")
+        print("  1. Bump schema_version in common.py")
+        print("  2. Run: python scripts/check_spec_protected.py --bootstrap")
         print(f"  3. Commit the updated {BASELINE_FILE}")
         sys.exit(1)
 

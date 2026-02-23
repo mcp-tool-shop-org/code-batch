@@ -12,8 +12,14 @@ from pathlib import Path
 from typing import Iterator, Optional
 
 from .cas import ObjectStore
-from .common import SCHEMA_VERSION, PRODUCER, utc_now_z, SnapshotExistsError, object_shard_prefix
-from .paths import canonicalize_path, compute_path_key, PathEscapeError, InvalidPathError, detect_case_collision
+from .common import SCHEMA_VERSION, PRODUCER, utc_now_z, SnapshotExistsError
+from .paths import (
+    canonicalize_path,
+    compute_path_key,
+    PathEscapeError,
+    InvalidPathError,
+    detect_case_collision,
+)
 
 
 # Language detection by extension
@@ -205,28 +211,34 @@ class SnapshotBuilder:
                 file_records.append(record)
 
             except (PathEscapeError, InvalidPathError) as e:
-                skipped_files.append({
-                    "path": rel_path,
-                    "reason": "invalid_path",
-                    "message": str(e),
-                })
+                skipped_files.append(
+                    {
+                        "path": rel_path,
+                        "reason": "invalid_path",
+                        "message": str(e),
+                    }
+                )
             except OSError as e:
-                skipped_files.append({
-                    "path": rel_path,
-                    "reason": "unreadable",
-                    "message": str(e),
-                })
+                skipped_files.append(
+                    {
+                        "path": rel_path,
+                        "reason": "unreadable",
+                        "message": str(e),
+                    }
+                )
 
         # Detect case collisions
         all_paths = [r["path"] for r in file_records]
         case_collisions = detect_case_collision(all_paths)
         collision_warnings = []
         for p1, p2 in case_collisions:
-            collision_warnings.append({
-                "paths": [p1, p2],
-                "reason": "case_collision",
-                "message": f"Paths differ only by case: {p1} vs {p2}",
-            })
+            collision_warnings.append(
+                {
+                    "paths": [p1, p2],
+                    "reason": "case_collision",
+                    "message": f"Paths differ only by case: {p1} vs {p2}",
+                }
+            )
 
         # Sort records by path_key for deterministic output
         file_records.sort(key=lambda r: r["path_key"])

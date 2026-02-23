@@ -28,10 +28,7 @@ class TestSnapshotSchema:
             "schema_version": 1,
             "snapshot_id": "snap-123",
             "created_at": "2025-02-02T00:00:00Z",
-            "source": {
-                "type": "directory",
-                "path": "/some/path"
-            }
+            "source": {"type": "directory", "path": "/some/path"},
         }
         jsonschema.validate(record, schema)
 
@@ -55,7 +52,7 @@ class TestSnapshotSchema:
             "snapshot_id": "snap-123",
             "created_at": "2025-02-02T00:00:00Z",
             "source": {"type": "directory", "path": "/path"},
-            "future_field": "some_value"  # unknown field
+            "future_field": "some_value",  # unknown field
         }
         jsonschema.validate(record, schema)
 
@@ -71,7 +68,7 @@ class TestFilesIndexSchema:
             "path": "src/main.py",
             "path_key": "src/main.py",
             "object": "sha256:" + "a" * 64,
-            "size": 100
+            "size": 100,
         }
         jsonschema.validate(record, schema)
 
@@ -100,7 +97,7 @@ class TestBatchSchema:
             "batch_id": "batch-123",
             "snapshot_id": "snap-123",
             "created_at": "2025-02-02T00:00:00Z",
-            "pipeline": "parse"
+            "pipeline": "parse",
         }
         jsonschema.validate(record, schema)
 
@@ -117,10 +114,7 @@ class TestTaskSchema:
             "task_id": "01_parse",
             "batch_id": "batch-123",
             "type": "parse",
-            "sharding": {
-                "strategy": "hash_prefix",
-                "shard_count": 256
-            }
+            "sharding": {"strategy": "hash_prefix", "shard_count": 256},
         }
         jsonschema.validate(record, schema)
 
@@ -137,7 +131,7 @@ class TestShardStateSchema:
             "shard_id": "ab",
             "task_id": "01_parse",
             "batch_id": "batch-123",
-            "status": "ready"
+            "status": "ready",
         }
         jsonschema.validate(record, schema)
 
@@ -170,7 +164,7 @@ class TestOutputRecordSchema:
             "shard_id": "ab",
             "path": "src/main.py",
             "kind": "ast",
-            "ts": "2025-02-02T00:00:00Z"
+            "ts": "2025-02-02T00:00:00Z",
         }
         jsonschema.validate(record, schema)
 
@@ -188,7 +182,7 @@ class TestOutputRecordSchema:
             "ts": "2025-02-02T00:00:00Z",
             "severity": "error",
             "code": "E0001",
-            "message": "Syntax error"
+            "message": "Syntax error",
         }
         jsonschema.validate(record, schema)
 
@@ -205,7 +199,7 @@ class TestEventRecordSchema:
             "event": "shard_started",
             "batch_id": "batch-123",
             "task_id": "01_parse",
-            "shard_id": "ab"
+            "shard_id": "ab",
         }
         jsonschema.validate(record, schema)
 
@@ -223,8 +217,8 @@ class TestChunkManifestSchema:
             "format": "json",
             "chunks": [
                 {"object": "sha256:" + "a" * 64, "size": 1000, "index": 0},
-                {"object": "sha256:" + "b" * 64, "size": 500, "index": 1}
+                {"object": "sha256:" + "b" * 64, "size": 500, "index": 1},
             ],
-            "total_bytes": 1500
+            "total_bytes": 1500,
         }
         jsonschema.validate(record, schema)

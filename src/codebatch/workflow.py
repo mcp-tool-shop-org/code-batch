@@ -136,12 +136,7 @@ class WorkflowRunner:
     ) -> TaskProgress:
         """Get progress for a single task."""
         shards_dir = (
-            self.store_root
-            / "batches"
-            / batch_id
-            / "tasks"
-            / task_id
-            / "shards"
+            self.store_root / "batches" / batch_id / "tasks" / task_id / "shards"
         )
 
         task_progress = TaskProgress(
@@ -164,6 +159,7 @@ class WorkflowRunner:
             task_progress.shards_total += 1
 
             import json
+
             with open(state_path) as f:
                 state = json.load(f)
 
@@ -447,11 +443,13 @@ def list_pipelines() -> list[dict]:
     """
     result = []
     for name, config in PIPELINES.items():
-        result.append({
-            "name": name,
-            "description": config.get("description", ""),
-            "tasks": [t["task_id"] for t in config["tasks"]],
-        })
+        result.append(
+            {
+                "name": name,
+                "description": config.get("description", ""),
+                "tasks": [t["task_id"] for t in config["tasks"]],
+            }
+        )
     return result
 
 

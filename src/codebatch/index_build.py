@@ -23,8 +23,6 @@ from .cache import CacheEnv, CacheWriter
 from .cache_meta import (
     compute_source_fingerprint,
     create_cache_meta,
-    make_cache_key,
-    KEY_DELIMITER,
 )
 from .common import object_shard_prefix
 from .snapshot import SnapshotBuilder
@@ -192,7 +190,9 @@ def build_index(
                     stats["diagnostics_indexed"] += 1
 
                     # Update diagnostic stats
-                    writer.increment_stat(snapshot_id, batch_id, task_id, "severity", severity)
+                    writer.increment_stat(
+                        snapshot_id, batch_id, task_id, "severity", severity
+                    )
                     writer.increment_stat(snapshot_id, batch_id, task_id, "code", code)
 
         # Flush accumulated stats counters

@@ -10,9 +10,8 @@ All file paths in a snapshot are canonicalized:
 A path_key is included for normalized comparison (lowercase).
 """
 
-import os
 import re
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Tuple
 
 
@@ -38,11 +37,32 @@ class InvalidPathError(Exception):
 INVALID_CHARS = re.compile(r'[\x00-\x1f<>:"|?*]')
 
 # Reserved Windows filenames
-RESERVED_NAMES = frozenset([
-    "CON", "PRN", "AUX", "NUL",
-    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-])
+RESERVED_NAMES = frozenset(
+    [
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        "COM1",
+        "COM2",
+        "COM3",
+        "COM4",
+        "COM5",
+        "COM6",
+        "COM7",
+        "COM8",
+        "COM9",
+        "LPT1",
+        "LPT2",
+        "LPT3",
+        "LPT4",
+        "LPT5",
+        "LPT6",
+        "LPT7",
+        "LPT8",
+        "LPT9",
+    ]
+)
 
 
 def canonicalize_path(path: str, root: Path = None) -> str:
@@ -190,7 +210,7 @@ def detect_case_collision(paths: list[str]) -> list[Tuple[str, str]]:
         if len(path_list) > 1:
             # Return all pairs
             for i, p1 in enumerate(path_list):
-                for p2 in path_list[i + 1:]:
+                for p2 in path_list[i + 1 :]:
                     collisions.append((p1, p2))
 
     return collisions

@@ -1,6 +1,5 @@
 """Tests for store initialization and validation."""
 
-import json
 import pytest
 from pathlib import Path
 
@@ -97,7 +96,9 @@ class TestLoadStore:
     def test_load_wrong_schema_name_raises(self, store_root: Path):
         """Load raises for wrong schema_name."""
         store_root.mkdir(parents=True)
-        (store_root / "store.json").write_text('{"schema_name": "wrong", "schema_version": 1}')
+        (store_root / "store.json").write_text(
+            '{"schema_name": "wrong", "schema_version": 1}'
+        )
 
         with pytest.raises(InvalidStoreError, match="invalid schema_name"):
             load_store(store_root)

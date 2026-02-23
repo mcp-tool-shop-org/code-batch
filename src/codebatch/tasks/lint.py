@@ -21,7 +21,7 @@ Rules (Phase 8 - AST-aware):
 """
 
 import json
-from typing import Any, Iterable, Optional
+from typing import Iterable
 
 from ..runner import ShardRunner
 
@@ -32,29 +32,132 @@ TODO_PATTERNS = ["TODO", "FIXME", "XXX", "HACK"]
 
 # Built-in names that should not be flagged as undefined
 PYTHON_BUILTINS = {
-    "abs", "all", "any", "ascii", "bin", "bool", "breakpoint", "bytearray",
-    "bytes", "callable", "chr", "classmethod", "compile", "complex",
-    "delattr", "dict", "dir", "divmod", "enumerate", "eval", "exec",
-    "filter", "float", "format", "frozenset", "getattr", "globals",
-    "hasattr", "hash", "help", "hex", "id", "input", "int", "isinstance",
-    "issubclass", "iter", "len", "list", "locals", "map", "max",
-    "memoryview", "min", "next", "object", "oct", "open", "ord", "pow",
-    "print", "property", "range", "repr", "reversed", "round", "set",
-    "setattr", "slice", "sorted", "staticmethod", "str", "sum", "super",
-    "tuple", "type", "vars", "zip", "__import__", "__name__", "__doc__",
-    "__package__", "__loader__", "__spec__", "__annotations__", "__builtins__",
-    "__file__", "__cached__", "None", "True", "False", "Ellipsis",
-    "NotImplemented", "Exception", "BaseException", "TypeError", "ValueError",
-    "KeyError", "IndexError", "AttributeError", "ImportError", "RuntimeError",
-    "StopIteration", "GeneratorExit", "AssertionError", "NameError",
-    "ZeroDivisionError", "OSError", "IOError", "FileNotFoundError",
-    "PermissionError", "TimeoutError", "ConnectionError", "BrokenPipeError",
-    "OverflowError", "RecursionError", "MemoryError", "SystemError",
-    "SyntaxError", "IndentationError", "TabError", "UnicodeError",
-    "UnicodeDecodeError", "UnicodeEncodeError", "Warning", "UserWarning",
-    "DeprecationWarning", "PendingDeprecationWarning", "RuntimeWarning",
-    "SyntaxWarning", "ResourceWarning", "FutureWarning", "ImportWarning",
-    "UnicodeWarning", "BytesWarning", "EncodingWarning",
+    "abs",
+    "all",
+    "any",
+    "ascii",
+    "bin",
+    "bool",
+    "breakpoint",
+    "bytearray",
+    "bytes",
+    "callable",
+    "chr",
+    "classmethod",
+    "compile",
+    "complex",
+    "delattr",
+    "dict",
+    "dir",
+    "divmod",
+    "enumerate",
+    "eval",
+    "exec",
+    "filter",
+    "float",
+    "format",
+    "frozenset",
+    "getattr",
+    "globals",
+    "hasattr",
+    "hash",
+    "help",
+    "hex",
+    "id",
+    "input",
+    "int",
+    "isinstance",
+    "issubclass",
+    "iter",
+    "len",
+    "list",
+    "locals",
+    "map",
+    "max",
+    "memoryview",
+    "min",
+    "next",
+    "object",
+    "oct",
+    "open",
+    "ord",
+    "pow",
+    "print",
+    "property",
+    "range",
+    "repr",
+    "reversed",
+    "round",
+    "set",
+    "setattr",
+    "slice",
+    "sorted",
+    "staticmethod",
+    "str",
+    "sum",
+    "super",
+    "tuple",
+    "type",
+    "vars",
+    "zip",
+    "__import__",
+    "__name__",
+    "__doc__",
+    "__package__",
+    "__loader__",
+    "__spec__",
+    "__annotations__",
+    "__builtins__",
+    "__file__",
+    "__cached__",
+    "None",
+    "True",
+    "False",
+    "Ellipsis",
+    "NotImplemented",
+    "Exception",
+    "BaseException",
+    "TypeError",
+    "ValueError",
+    "KeyError",
+    "IndexError",
+    "AttributeError",
+    "ImportError",
+    "RuntimeError",
+    "StopIteration",
+    "GeneratorExit",
+    "AssertionError",
+    "NameError",
+    "ZeroDivisionError",
+    "OSError",
+    "IOError",
+    "FileNotFoundError",
+    "PermissionError",
+    "TimeoutError",
+    "ConnectionError",
+    "BrokenPipeError",
+    "OverflowError",
+    "RecursionError",
+    "MemoryError",
+    "SystemError",
+    "SyntaxError",
+    "IndentationError",
+    "TabError",
+    "UnicodeError",
+    "UnicodeDecodeError",
+    "UnicodeEncodeError",
+    "Warning",
+    "UserWarning",
+    "DeprecationWarning",
+    "PendingDeprecationWarning",
+    "RuntimeWarning",
+    "SyntaxWarning",
+    "ResourceWarning",
+    "FutureWarning",
+    "ImportWarning",
+    "UnicodeWarning",
+    "BytesWarning",
+    "EncodingWarning",
 }
 
 
@@ -63,35 +166,41 @@ def lint_trailing_whitespace(lines: list[str], path: str) -> list[dict]:
     diagnostics = []
     for i, line in enumerate(lines, 1):
         # Don't strip newline, just check for trailing spaces/tabs before it
-        stripped = line.rstrip('\n\r')
+        stripped = line.rstrip("\n\r")
         if stripped != stripped.rstrip():
-            diagnostics.append({
-                "kind": "diagnostic",
-                "path": path,
-                "severity": "warning",
-                "code": "L001",
-                "message": "Trailing whitespace",
-                "line": i,
-                "col": len(stripped.rstrip()) + 1,
-            })
+            diagnostics.append(
+                {
+                    "kind": "diagnostic",
+                    "path": path,
+                    "severity": "warning",
+                    "code": "L001",
+                    "message": "Trailing whitespace",
+                    "line": i,
+                    "col": len(stripped.rstrip()) + 1,
+                }
+            )
     return diagnostics
 
 
-def lint_line_too_long(lines: list[str], path: str, max_length: int = DEFAULT_MAX_LINE_LENGTH) -> list[dict]:
+def lint_line_too_long(
+    lines: list[str], path: str, max_length: int = DEFAULT_MAX_LINE_LENGTH
+) -> list[dict]:
     """L002: Detect lines exceeding max length."""
     diagnostics = []
     for i, line in enumerate(lines, 1):
-        stripped = line.rstrip('\n\r')
+        stripped = line.rstrip("\n\r")
         if len(stripped) > max_length:
-            diagnostics.append({
-                "kind": "diagnostic",
-                "path": path,
-                "severity": "warning",
-                "code": "L002",
-                "message": f"Line too long ({len(stripped)} > {max_length})",
-                "line": i,
-                "col": max_length + 1,
-            })
+            diagnostics.append(
+                {
+                    "kind": "diagnostic",
+                    "path": path,
+                    "severity": "warning",
+                    "code": "L002",
+                    "message": f"Line too long ({len(stripped)} > {max_length})",
+                    "line": i,
+                    "col": max_length + 1,
+                }
+            )
     return diagnostics
 
 
@@ -103,15 +212,17 @@ def lint_todo_fixme(lines: list[str], path: str) -> list[dict]:
         for pattern in TODO_PATTERNS:
             if pattern in upper_line:
                 col = line.upper().find(pattern) + 1
-                diagnostics.append({
-                    "kind": "diagnostic",
-                    "path": path,
-                    "severity": "info",
-                    "code": "L003",
-                    "message": f"Found {pattern} comment",
-                    "line": i,
-                    "col": col,
-                })
+                diagnostics.append(
+                    {
+                        "kind": "diagnostic",
+                        "path": path,
+                        "severity": "info",
+                        "code": "L003",
+                        "message": f"Found {pattern} comment",
+                        "line": i,
+                        "col": col,
+                    }
+                )
                 break  # Only report once per line
     return diagnostics
 
@@ -120,33 +231,37 @@ def lint_tab_indentation(lines: list[str], path: str) -> list[dict]:
     """L004: Detect tab indentation (prefer spaces)."""
     diagnostics = []
     for i, line in enumerate(lines, 1):
-        if line.startswith('\t'):
-            diagnostics.append({
-                "kind": "diagnostic",
-                "path": path,
-                "severity": "warning",
-                "code": "L004",
-                "message": "Tab indentation (prefer spaces)",
-                "line": i,
-                "col": 1,
-            })
+        if line.startswith("\t"):
+            diagnostics.append(
+                {
+                    "kind": "diagnostic",
+                    "path": path,
+                    "severity": "warning",
+                    "code": "L004",
+                    "message": "Tab indentation (prefer spaces)",
+                    "line": i,
+                    "col": 1,
+                }
+            )
     return diagnostics
 
 
 def lint_missing_final_newline(content: str, path: str) -> list[dict]:
     """L005: Detect missing newline at end of file."""
     diagnostics = []
-    if content and not content.endswith('\n'):
-        lines = content.split('\n')
-        diagnostics.append({
-            "kind": "diagnostic",
-            "path": path,
-            "severity": "warning",
-            "code": "L005",
-            "message": "Missing newline at end of file",
-            "line": len(lines),
-            "col": len(lines[-1]) + 1 if lines else 1,
-        })
+    if content and not content.endswith("\n"):
+        lines = content.split("\n")
+        diagnostics.append(
+            {
+                "kind": "diagnostic",
+                "path": path,
+                "severity": "warning",
+                "code": "L005",
+                "message": "Missing newline at end of file",
+                "line": len(lines),
+                "col": len(lines[-1]) + 1 if lines else 1,
+            }
+        )
     return diagnostics
 
 
@@ -162,7 +277,7 @@ def lint_content(content: str, path: str, config: dict) -> list[dict]:
         List of diagnostic records.
     """
     diagnostics = []
-    lines = content.split('\n')
+    lines = content.split("\n")
 
     # Get config options
     max_line_length = config.get("max_line_length", DEFAULT_MAX_LINE_LENGTH)
@@ -195,7 +310,9 @@ def lint_content(content: str, path: str, config: dict) -> list[dict]:
 # =============================================================================
 
 
-def _collect_names_from_node(node: dict, names: set[str], scope: str = "module", in_target: bool = False) -> None:
+def _collect_names_from_node(
+    node: dict, names: set[str], scope: str = "module", in_target: bool = False
+) -> None:
     """Recursively collect all Name references from AST node.
 
     Args:
@@ -289,7 +406,17 @@ def _collect_names_from_node(node: dict, names: set[str], scope: str = "module",
         return
 
     # Recurse into common child containers (but not targets)
-    for key in ("body", "orelse", "handlers", "finalbody", "args", "keywords", "elts", "keys", "values"):
+    for key in (
+        "body",
+        "orelse",
+        "handlers",
+        "finalbody",
+        "args",
+        "keywords",
+        "elts",
+        "keys",
+        "values",
+    ):
         children = node.get(key, [])
         if isinstance(children, list):
             for child in children:
@@ -330,7 +457,9 @@ def _collect_names_from_node(node: dict, names: set[str], scope: str = "module",
                     _collect_names_from_node(item, names, scope, in_target=False)
 
 
-def _collect_defined_names(node: dict, defined: dict[str, dict], scope: str = "module") -> None:
+def _collect_defined_names(
+    node: dict, defined: dict[str, dict], scope: str = "module"
+) -> None:
     """Collect all defined names (variables, functions, classes, imports).
 
     Args:
@@ -351,7 +480,11 @@ def _collect_defined_names(node: dict, defined: dict[str, dict], scope: str = "m
             for arg_info in args.get("args", []):
                 arg_name = arg_info.get("arg")
                 if arg_name:
-                    defined[arg_name] = {"type": "parameter", "line": lineno, "scope": name}
+                    defined[arg_name] = {
+                        "type": "parameter",
+                        "line": lineno,
+                        "scope": name,
+                    }
             # Recurse into function body with new scope
             for child in node.get("body", []):
                 _collect_defined_names(child, defined, name)
@@ -374,14 +507,22 @@ def _collect_defined_names(node: dict, defined: dict[str, dict], scope: str = "m
                 # Handle dotted imports - use first part
                 if "." in import_name:
                     import_name = import_name.split(".")[0]
-                defined[import_name] = {"type": "import", "line": lineno, "scope": scope}
+                defined[import_name] = {
+                    "type": "import",
+                    "line": lineno,
+                    "scope": scope,
+                }
 
     # ImportFrom
     if node_type == "ImportFrom":
         for name_info in node.get("names", []):
             import_name = name_info.get("asname") or name_info.get("name")
             if import_name and import_name != "*":
-                defined[import_name] = {"type": "import", "line": lineno, "scope": scope}
+                defined[import_name] = {
+                    "type": "import",
+                    "line": lineno,
+                    "scope": scope,
+                }
 
     # Assignment
     if node_type == "Assign":
@@ -389,7 +530,11 @@ def _collect_defined_names(node: dict, defined: dict[str, dict], scope: str = "m
             if target.get("type") == "Name":
                 var_name = target.get("id")
                 if var_name:
-                    defined[var_name] = {"type": "variable", "line": lineno, "scope": scope}
+                    defined[var_name] = {
+                        "type": "variable",
+                        "line": lineno,
+                        "scope": scope,
+                    }
 
     # Annotated assignment
     if node_type == "AnnAssign":
@@ -420,7 +565,11 @@ def _collect_defined_names(node: dict, defined: dict[str, dict], scope: str = "m
             if optional_vars and optional_vars.get("type") == "Name":
                 var_name = optional_vars.get("id")
                 if var_name:
-                    defined[var_name] = {"type": "variable", "line": lineno, "scope": scope}
+                    defined[var_name] = {
+                        "type": "variable",
+                        "line": lineno,
+                        "scope": scope,
+                    }
 
     # Recurse into body
     for key in ("body", "orelse", "handlers", "finalbody"):
@@ -453,15 +602,23 @@ def lint_unused_imports(ast_data: dict, path: str) -> list[dict]:
                 import_name = name_info.get("asname") or name_info.get("name")
                 if import_name:
                     # Handle dotted imports - use first part as the accessible name
-                    accessible_name = import_name.split(".")[0] if "." in import_name else import_name
-                    imports[accessible_name] = {"line": lineno, "full_name": name_info.get("name")}
+                    accessible_name = (
+                        import_name.split(".")[0] if "." in import_name else import_name
+                    )
+                    imports[accessible_name] = {
+                        "line": lineno,
+                        "full_name": name_info.get("name"),
+                    }
 
         elif node_type == "ImportFrom":
             module = node.get("module", "")
             for name_info in node.get("names", []):
                 import_name = name_info.get("asname") or name_info.get("name")
                 if import_name and import_name != "*":
-                    imports[import_name] = {"line": lineno, "full_name": f"{module}.{name_info.get('name')}"}
+                    imports[import_name] = {
+                        "line": lineno,
+                        "full_name": f"{module}.{name_info.get('name')}",
+                    }
 
         # Recurse
         for child in node.get("body", []):
@@ -482,15 +639,17 @@ def lint_unused_imports(ast_data: dict, path: str) -> list[dict]:
     # Find unused imports
     for import_name, info in imports.items():
         if import_name not in used_names:
-            diagnostics.append({
-                "kind": "diagnostic",
-                "path": path,
-                "severity": "warning",
-                "code": "L101",
-                "message": f"Unused import '{import_name}'",
-                "line": info["line"],
-                "col": 1,
-            })
+            diagnostics.append(
+                {
+                    "kind": "diagnostic",
+                    "path": path,
+                    "severity": "warning",
+                    "code": "L101",
+                    "message": f"Unused import '{import_name}'",
+                    "line": info["line"],
+                    "col": 1,
+                }
+            )
 
     return diagnostics
 
@@ -537,15 +696,17 @@ def lint_unused_variables(ast_data: dict, path: str) -> list[dict]:
 
         # Check if used
         if var_name not in used_names:
-            diagnostics.append({
-                "kind": "diagnostic",
-                "path": path,
-                "severity": "warning",
-                "code": "L102",
-                "message": f"Unused variable '{var_name}'",
-                "line": info["line"],
-                "col": 1,
-            })
+            diagnostics.append(
+                {
+                    "kind": "diagnostic",
+                    "path": path,
+                    "severity": "warning",
+                    "code": "L102",
+                    "message": f"Unused variable '{var_name}'",
+                    "line": info["line"],
+                    "col": 1,
+                }
+            )
 
     return diagnostics
 
@@ -584,15 +745,17 @@ def lint_variable_shadowing(ast_data: dict, path: str) -> list[dict]:
                         # Check if this shadows something in parent scopes
                         for parent in parent_scopes:
                             if arg_name in scopes.get(parent, {}):
-                                diagnostics.append({
-                                    "kind": "diagnostic",
-                                    "path": path,
-                                    "severity": "info",
-                                    "code": "L103",
-                                    "message": f"Parameter '{arg_name}' shadows variable from outer scope",
-                                    "line": lineno,
-                                    "col": 1,
-                                })
+                                diagnostics.append(
+                                    {
+                                        "kind": "diagnostic",
+                                        "path": path,
+                                        "severity": "info",
+                                        "code": "L103",
+                                        "message": f"Parameter '{arg_name}' shadows variable from outer scope",
+                                        "line": lineno,
+                                        "col": 1,
+                                    }
+                                )
                                 break
                         scopes[new_scope][arg_name] = lineno
 
@@ -620,15 +783,17 @@ def lint_variable_shadowing(ast_data: dict, path: str) -> list[dict]:
                         # Check parent scopes
                         for parent in parent_scopes:
                             if var_name in scopes.get(parent, {}):
-                                diagnostics.append({
-                                    "kind": "diagnostic",
-                                    "path": path,
-                                    "severity": "info",
-                                    "code": "L103",
-                                    "message": f"Variable '{var_name}' shadows variable from outer scope",
-                                    "line": lineno,
-                                    "col": 1,
-                                })
+                                diagnostics.append(
+                                    {
+                                        "kind": "diagnostic",
+                                        "path": path,
+                                        "severity": "info",
+                                        "code": "L103",
+                                        "message": f"Variable '{var_name}' shadows variable from outer scope",
+                                        "line": lineno,
+                                        "col": 1,
+                                    }
+                                )
                                 break
                         if scope not in scopes:
                             scopes[scope] = {}
@@ -677,7 +842,9 @@ def lint_python_ast(ast_data: dict, path: str, config: dict) -> list[dict]:
     return diagnostics
 
 
-def lint_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -> list[dict]:
+def lint_executor(
+    config: dict, files: Iterable[dict], runner: ShardRunner
+) -> list[dict]:
     """Execute the lint task.
 
     Runs lint rules on files in the shard. Uses AST-based linting for
@@ -702,7 +869,9 @@ def lint_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -> l
 
     # First pass: AST-aware linting for files that have AST (from parse task)
     if batch_id and shard_id:
-        for ast_output in runner.iter_prior_outputs(batch_id, "01_parse", shard_id, kind="ast"):
+        for ast_output in runner.iter_prior_outputs(
+            batch_id, "01_parse", shard_id, kind="ast"
+        ):
             path = ast_output.get("path")
             object_ref = ast_output.get("object")
 
@@ -729,15 +898,17 @@ def lint_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -> l
                     ast_linted_paths.add(path)
 
             except Exception as e:
-                outputs.append({
-                    "kind": "diagnostic",
-                    "path": path,
-                    "severity": "warning",
-                    "code": "L998",
-                    "message": f"AST lint error: {e}",
-                    "line": 1,
-                    "col": 1,
-                })
+                outputs.append(
+                    {
+                        "kind": "diagnostic",
+                        "path": path,
+                        "severity": "warning",
+                        "code": "L998",
+                        "message": f"AST lint error: {e}",
+                        "line": 1,
+                        "col": 1,
+                    }
+                )
 
     # Second pass: text-based lint rules for all files
     file_list = list(files)
@@ -761,14 +932,16 @@ def lint_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -> l
             outputs.extend(diagnostics)
 
         except Exception as e:
-            outputs.append({
-                "kind": "diagnostic",
-                "path": path,
-                "severity": "error",
-                "code": "L999",
-                "message": f"Lint error: {e}",
-                "line": 1,
-                "col": 1,
-            })
+            outputs.append(
+                {
+                    "kind": "diagnostic",
+                    "path": path,
+                    "severity": "error",
+                    "code": "L999",
+                    "message": f"Lint error: {e}",
+                    "line": 1,
+                    "col": 1,
+                }
+            )
 
     return outputs

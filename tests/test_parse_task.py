@@ -43,10 +43,10 @@ class TestParsePython:
 
     def test_valid_python(self):
         """Parse valid Python code."""
-        code = '''
+        code = """
 def hello():
     return "world"
-'''
+"""
         ast_dict, diagnostics = parse_python(code, "test.py")
 
         assert ast_dict is not None
@@ -73,12 +73,12 @@ class TestParseJavaScript:
 
     def test_valid_javascript(self):
         """Parse valid JavaScript code."""
-        code = '''
+        code = """
 function hello() {
     const x = 42;
     return x;
 }
-'''
+"""
         ast_dict, diagnostics = parse_javascript(code, "test.js")
 
         assert ast_dict is not None
@@ -208,7 +208,9 @@ class TestChunking:
 
         python_files = [r for r in records if r.get("lang_hint") == "python"]
         shard_id = object_shard_prefix(python_files[0]["object"])
-        shard_files = [r for r in records if object_shard_prefix(r["object"]) == shard_id]
+        shard_files = [
+            r for r in records if object_shard_prefix(r["object"]) == shard_id
+        ]
 
         # Run with low threshold
         outputs = parse_executor(config, shard_files, runner)

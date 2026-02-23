@@ -16,17 +16,14 @@ from codebatch.gates.result import (
     GateStatus,
     GateContext,
     GateFailure,
-    GateEnvironment,
     BundleResult,
 )
 from codebatch.gates.registry import (
     GateRegistry,
-    GateDefinition,
     get_registry,
     list_gates,
 )
-from codebatch.gates.runner import GateRunner, run_gate, run_bundle
-from codebatch.gates import definitions  # Ensure gates are registered
+from codebatch.gates.runner import GateRunner
 
 
 class TestGateResult:
@@ -199,7 +196,9 @@ class TestGateRegistry:
         def gate1(ctx):
             return GateResult(gate_id="G1", passed=True)
 
-        registry.register("G1", "G1", "", GateStatus.ENFORCED, [], ["cache", "phase3"], gate1)
+        registry.register(
+            "G1", "G1", "", GateStatus.ENFORCED, [], ["cache", "phase3"], gate1
+        )
 
         cached = registry.list_by_tag("cache")
         assert len(cached) == 1
@@ -396,7 +395,9 @@ class TestGateContext:
         artifact_dir = ctx.get_artifact_dir("P3-A1")
 
         assert artifact_dir.exists()
-        assert artifact_dir == tmp_path / "indexes" / "gate_artifacts" / "P3-A1" / "abc123"
+        assert (
+            artifact_dir == tmp_path / "indexes" / "gate_artifacts" / "P3-A1" / "abc123"
+        )
 
     def test_write_artifact(self, tmp_path: Path):
         """Should write artifact file."""

@@ -20,7 +20,7 @@ from ..runner import ShardRunner
 
 def count_lines(content: str) -> int:
     """Count lines of code (non-empty lines)."""
-    lines = content.split('\n')
+    lines = content.split("\n")
     return sum(1 for line in lines if line.strip())
 
 
@@ -126,7 +126,12 @@ def extract_complexity_metrics(ast_data: dict, path: str) -> list[dict]:
     import_count = 0
 
     def process_node(node: dict) -> None:
-        nonlocal total_complexity, max_complexity, function_count, class_count, import_count
+        nonlocal \
+            total_complexity, \
+            max_complexity, \
+            function_count, \
+            class_count, \
+            import_count
 
         node_type = node.get("type", "")
 
@@ -163,45 +168,57 @@ def extract_complexity_metrics(ast_data: dict, path: str) -> list[dict]:
         process_node(node)
 
     # Emit metrics
-    metrics.append({
-        "kind": "metric",
-        "path": path,
-        "metric": "complexity",
-        "value": total_complexity,
-    })
+    metrics.append(
+        {
+            "kind": "metric",
+            "path": path,
+            "metric": "complexity",
+            "value": total_complexity,
+        }
+    )
 
-    metrics.append({
-        "kind": "metric",
-        "path": path,
-        "metric": "max_complexity",
-        "value": max_complexity,
-    })
+    metrics.append(
+        {
+            "kind": "metric",
+            "path": path,
+            "metric": "max_complexity",
+            "value": max_complexity,
+        }
+    )
 
-    metrics.append({
-        "kind": "metric",
-        "path": path,
-        "metric": "function_count",
-        "value": function_count,
-    })
+    metrics.append(
+        {
+            "kind": "metric",
+            "path": path,
+            "metric": "function_count",
+            "value": function_count,
+        }
+    )
 
-    metrics.append({
-        "kind": "metric",
-        "path": path,
-        "metric": "class_count",
-        "value": class_count,
-    })
+    metrics.append(
+        {
+            "kind": "metric",
+            "path": path,
+            "metric": "class_count",
+            "value": class_count,
+        }
+    )
 
-    metrics.append({
-        "kind": "metric",
-        "path": path,
-        "metric": "import_count",
-        "value": import_count,
-    })
+    metrics.append(
+        {
+            "kind": "metric",
+            "path": path,
+            "metric": "import_count",
+            "value": import_count,
+        }
+    )
 
     return metrics
 
 
-def analyze_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -> list[dict]:
+def analyze_executor(
+    config: dict, files: Iterable[dict], runner: ShardRunner
+) -> list[dict]:
     """Execute the analyze task.
 
     Produces file-level metrics for each file in the shard:
@@ -234,7 +251,9 @@ def analyze_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -
 
     # First pass: Extract complexity metrics from AST (if available)
     if batch_id and shard_id:
-        for ast_output in runner.iter_prior_outputs(batch_id, "01_parse", shard_id, kind="ast"):
+        for ast_output in runner.iter_prior_outputs(
+            batch_id, "01_parse", shard_id, kind="ast"
+        ):
             path = ast_output.get("path")
             object_ref = ast_output.get("object")
 
@@ -285,37 +304,45 @@ def analyze_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -
                 pass
 
             # Emit bytes metric
-            outputs.append({
-                "kind": "metric",
-                "path": path,
-                "metric": "bytes",
-                "value": file_bytes,
-            })
+            outputs.append(
+                {
+                    "kind": "metric",
+                    "path": path,
+                    "metric": "bytes",
+                    "value": file_bytes,
+                }
+            )
 
             # Emit LOC metric (if text)
             if loc is not None:
-                outputs.append({
-                    "kind": "metric",
-                    "path": path,
-                    "metric": "loc",
-                    "value": loc,
-                })
+                outputs.append(
+                    {
+                        "kind": "metric",
+                        "path": path,
+                        "metric": "loc",
+                        "value": loc,
+                    }
+                )
 
             # Emit lang metric
-            outputs.append({
-                "kind": "metric",
-                "path": path,
-                "metric": "lang",
-                "value": lang_hint,
-            })
+            outputs.append(
+                {
+                    "kind": "metric",
+                    "path": path,
+                    "metric": "lang",
+                    "value": lang_hint,
+                }
+            )
 
         except Exception as e:
             # Emit error metric
-            outputs.append({
-                "kind": "metric",
-                "path": path,
-                "metric": "error",
-                "value": str(e),
-            })
+            outputs.append(
+                {
+                    "kind": "metric",
+                    "path": path,
+                    "metric": "error",
+                    "value": str(e),
+                }
+            )
 
     return outputs

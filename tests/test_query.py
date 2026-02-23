@@ -40,7 +40,7 @@ def batch_with_outputs(store: Path, snapshot_id: str) -> str:
     runner = ShardRunner(store)
 
     # Run all shards that have files
-    batch = runner.batch_manager.load_batch(batch_id)
+    runner.batch_manager.load_batch(batch_id)
     records = runner.snapshot_builder.load_file_index(snapshot_id)
 
     # Get unique shards
@@ -71,9 +71,7 @@ class TestQueryEngine:
         """Query outputs filtered by kind."""
         engine = QueryEngine(store)
 
-        results = engine.query_outputs(
-            batch_with_outputs, "01_parse", kind="ast"
-        )
+        results = engine.query_outputs(batch_with_outputs, "01_parse", kind="ast")
 
         assert len(results) >= 1
         for r in results:

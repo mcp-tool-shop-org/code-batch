@@ -10,7 +10,6 @@ Gates:
 - P8-SELF-HOST: Self-analysis works
 """
 
-import json
 import pytest
 
 from codebatch.tasks.parse import parse_python, parse_javascript
@@ -20,6 +19,7 @@ def _check_treesitter_available() -> bool:
     """Check if tree-sitter is available for JS/TS parsing."""
     try:
         from codebatch.tasks.parse import is_treesitter_available
+
         return is_treesitter_available()
     except ImportError:
         return False
@@ -30,10 +30,10 @@ class TestGateP8Parse:
 
     def test_function_name_preserved(self):
         """FunctionDef nodes must include actual name field."""
-        code = '''
+        code = """
 def calculate_total(items):
     pass
-'''
+"""
         ast_dict, diagnostics = parse_python(code.strip(), "test.py")
 
         assert ast_dict is not None
@@ -50,10 +50,10 @@ def calculate_total(items):
 
     def test_class_name_preserved(self):
         """ClassDef nodes must include actual name field."""
-        code = '''
+        code = """
 class ShoppingCart:
     pass
-'''
+"""
         ast_dict, diagnostics = parse_python(code.strip(), "test.py")
 
         assert ast_dict is not None
@@ -66,14 +66,14 @@ class ShoppingCart:
 
     def test_method_name_preserved(self):
         """Methods inside classes must have real names."""
-        code = '''
+        code = """
 class Cart:
     def add_item(self, item):
         pass
 
     def remove_item(self, item):
         pass
-'''
+"""
         ast_dict, diagnostics = parse_python(code.strip(), "test.py")
 
         assert ast_dict is not None
@@ -91,10 +91,10 @@ class Cart:
 
     def test_function_arguments_preserved(self):
         """Function arguments must be captured."""
-        code = '''
+        code = """
 def greet(name: str, times: int = 1) -> str:
     return name * times
-'''
+"""
         ast_dict, diagnostics = parse_python(code.strip(), "test.py")
 
         assert ast_dict is not None
@@ -114,10 +114,10 @@ def greet(name: str, times: int = 1) -> str:
 
     def test_variable_name_preserved(self):
         """Variable assignments must capture target names."""
-        code = '''
+        code = """
 total = 0
 count = 10
-'''
+"""
         ast_dict, diagnostics = parse_python(code.strip(), "test.py")
 
         assert ast_dict is not None
@@ -148,12 +148,12 @@ count = 10
 
     def test_import_names_preserved(self):
         """Import statements must capture module names."""
-        code = '''
+        code = """
 import os
 import sys
 from pathlib import Path
 from typing import List, Dict
-'''
+"""
         ast_dict, diagnostics = parse_python(code.strip(), "test.py")
 
         assert ast_dict is not None
@@ -197,14 +197,14 @@ from typing import List, Dict
 
     def test_nested_functions_preserved(self):
         """Nested functions should have their names preserved."""
-        code = '''
+        code = """
 def outer():
     def inner():
         def deep():
             pass
         return deep
     return inner
-'''
+"""
         ast_dict, diagnostics = parse_python(code.strip(), "test.py")
 
         assert ast_dict is not None
@@ -233,10 +233,10 @@ def outer():
 
     def test_async_function_name_preserved(self):
         """Async functions must have their names preserved."""
-        code = '''
+        code = """
 async def fetch_data(url: str):
     pass
-'''
+"""
         ast_dict, diagnostics = parse_python(code.strip(), "test.py")
 
         assert ast_dict is not None
@@ -246,11 +246,11 @@ async def fetch_data(url: str):
 
     def test_decorator_preserved(self):
         """Decorators should be captured."""
-        code = '''
+        code = """
 @staticmethod
 def helper():
     pass
-'''
+"""
         ast_dict, diagnostics = parse_python(code.strip(), "test.py")
 
         assert ast_dict is not None
@@ -267,13 +267,13 @@ class TestGateP8Symbols:
         """Symbol extraction must not use line number placeholders."""
         from codebatch.tasks.symbols import extract_python_symbols
 
-        code = '''
+        code = """
 def calculate_total(items):
     pass
 
 def process_order(order_id):
     pass
-'''
+"""
         ast_dict, _ = parse_python(code.strip(), "test.py")
         symbols, edges = extract_python_symbols(ast_dict, "test.py")
 
@@ -292,13 +292,13 @@ def process_order(order_id):
         """Class symbols must have actual class names."""
         from codebatch.tasks.symbols import extract_python_symbols
 
-        code = '''
+        code = """
 class ShoppingCart:
     pass
 
 class OrderManager:
     pass
-'''
+"""
         ast_dict, _ = parse_python(code.strip(), "test.py")
         symbols, edges = extract_python_symbols(ast_dict, "test.py")
 
@@ -317,12 +317,12 @@ class OrderManager:
         """Symbols must track their scope correctly."""
         from codebatch.tasks.symbols import extract_python_symbols
 
-        code = '''
+        code = """
 class Cart:
     def add_item(self, item):
         count = 0
         return count
-'''
+"""
         ast_dict, _ = parse_python(code.strip(), "test.py")
         symbols, edges = extract_python_symbols(ast_dict, "test.py")
 
@@ -345,12 +345,12 @@ class Cart:
         """Import edges must have real module names, not placeholders."""
         from codebatch.tasks.symbols import extract_python_symbols
 
-        code = '''
+        code = """
 import os
 import sys
 from pathlib import Path
 from typing import List, Dict
-'''
+"""
         ast_dict, _ = parse_python(code.strip(), "test.py")
         symbols, edges = extract_python_symbols(ast_dict, "test.py")
 
@@ -367,14 +367,16 @@ from typing import List, Dict
         # Must NOT have placeholder targets
         for target in targets:
             assert not target.startswith("module_"), f"Placeholder target: {target}"
-            assert not target.startswith("from_module_"), f"Placeholder target: {target}"
+            assert not target.startswith("from_module_"), (
+                f"Placeholder target: {target}"
+            )
 
     def test_no_placeholder_names_anywhere(self):
         """Comprehensive check: no placeholder patterns in any symbol or edge."""
         from codebatch.tasks.symbols import extract_python_symbols
         import re
 
-        code = '''
+        code = """
 import os
 from collections import defaultdict
 
@@ -390,24 +392,30 @@ class MyClass:
 def standalone_func():
     x = 1
     return x
-'''
+"""
         ast_dict, _ = parse_python(code.strip(), "test.py")
         symbols, edges = extract_python_symbols(ast_dict, "test.py")
 
         # Placeholder patterns: name_<number> where number is a line number
-        placeholder_pattern = re.compile(r'^(function|class|variable|module|from_module)_\d+$')
+        placeholder_pattern = re.compile(
+            r"^(function|class|variable|module|from_module)_\d+$"
+        )
 
         # Check all symbol names
         for symbol in symbols:
             name = symbol.get("name", "")
-            assert not placeholder_pattern.match(name), f"Placeholder pattern found: {name}"
+            assert not placeholder_pattern.match(name), (
+                f"Placeholder pattern found: {name}"
+            )
             # Name should be a real identifier
             assert name.isidentifier() or "." in name, f"Invalid name: {name}"
 
         # Check all edge targets
         for edge in edges:
             target = edge.get("target", "")
-            assert not placeholder_pattern.match(target), f"Placeholder pattern found: {target}"
+            assert not placeholder_pattern.match(target), (
+                f"Placeholder pattern found: {target}"
+            )
 
 
 class TestGateP8Roundtrip:
@@ -423,14 +431,14 @@ class TestGateP8Roundtrip:
         from codebatch.common import object_shard_prefix
         from codebatch.tasks.parse import parse_executor
         from codebatch.tasks.symbols import symbols_executor
-        import json
 
         # Create test corpus
         corpus = tmp_path / "corpus"
         corpus.mkdir()
 
         test_file = corpus / "example.py"
-        test_file.write_text('''
+        test_file.write_text(
+            '''
 import os
 from pathlib import Path
 
@@ -447,7 +455,8 @@ class Calculator:
 def main():
     calc = Calculator()
     print(calc.add(1, 2))
-'''.strip())
+'''.strip()
+        )
 
         # Initialize store
         store = tmp_path / "store"
@@ -480,9 +489,13 @@ def main():
         symbol_names = [s.get("name") for s in symbols]
 
         # Verify real names are present
-        assert "Calculator" in symbol_names, f"Class 'Calculator' not found in {symbol_names}"
+        assert "Calculator" in symbol_names, (
+            f"Class 'Calculator' not found in {symbol_names}"
+        )
         assert "add" in symbol_names, f"Method 'add' not found in {symbol_names}"
-        assert "subtract" in symbol_names, f"Method 'subtract' not found in {symbol_names}"
+        assert "subtract" in symbol_names, (
+            f"Method 'subtract' not found in {symbol_names}"
+        )
         assert "main" in symbol_names, f"Function 'main' not found in {symbol_names}"
 
         # Verify no placeholder names
@@ -496,7 +509,9 @@ def main():
 
         # Verify import edges have real names
         assert "os" in edge_targets, f"Import 'os' not found in {edge_targets}"
-        assert "pathlib.Path" in edge_targets, f"Import 'pathlib.Path' not found in {edge_targets}"
+        assert "pathlib.Path" in edge_targets, (
+            f"Import 'pathlib.Path' not found in {edge_targets}"
+        )
 
     def test_symbols_have_correct_scope(self, tmp_path):
         """Symbols must have correct scope tracking through pipeline."""
@@ -514,14 +529,16 @@ def main():
         corpus.mkdir()
 
         test_file = corpus / "scoped.py"
-        test_file.write_text('''
+        test_file.write_text(
+            """
 class Outer:
     class_attr = 1
 
     def method(self, x):
         local_var = x * 2
         return local_var
-'''.strip())
+""".strip()
+        )
 
         # Initialize store
         store = tmp_path / "store"
@@ -572,19 +589,18 @@ class TestGateP8TreeSitter:
     def test_treesitter_availability_check(self):
         """is_treesitter_available() must return correct status."""
         from codebatch.tasks.parse import is_treesitter_available
+
         # Just verify the function exists and returns a bool
         result = is_treesitter_available()
         assert isinstance(result, bool)
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_js_produces_real_ast_structure(self):
         """JavaScript must produce structural AST, not token counts."""
-        from codebatch.tasks.parse import parse_javascript
 
-        js_code = '''
+        js_code = """
 function fetchData(url) {
     return fetch(url);
 }
@@ -600,31 +616,33 @@ class DataService {
         return await fetch(this.baseUrl + "/" + id);
     }
 }
-'''.strip()
+""".strip()
 
         ast_dict, diagnostics = parse_javascript(js_code, "test.js")
 
         # Must NOT be token mode
         assert ast_dict is not None
-        assert ast_dict.get("ast_mode") == "full", f"Expected full AST, got {ast_dict.get('ast_mode')}"
-        assert ast_dict.get("parser") == "tree-sitter", f"Expected tree-sitter, got {ast_dict.get('parser')}"
+        assert ast_dict.get("ast_mode") == "full", (
+            f"Expected full AST, got {ast_dict.get('ast_mode')}"
+        )
+        assert ast_dict.get("parser") == "tree-sitter", (
+            f"Expected tree-sitter, got {ast_dict.get('parser')}"
+        )
 
         # Must have structural children
         assert "children" in ast_dict or ast_dict.get("type") == "program"
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_js_function_names_extracted(self):
         """JavaScript function names must be extracted."""
-        from codebatch.tasks.parse import parse_javascript
 
-        js_code = '''
+        js_code = """
 function calculateTotal(items) {
     return items.reduce((sum, item) => sum + item.price, 0);
 }
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript(js_code, "test.js")
 
@@ -639,17 +657,17 @@ function calculateTotal(items) {
             return funcs
 
         func_names = find_functions(ast_dict)
-        assert "calculateTotal" in func_names, f"Function 'calculateTotal' not found in {func_names}"
+        assert "calculateTotal" in func_names, (
+            f"Function 'calculateTotal' not found in {func_names}"
+        )
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_js_class_names_extracted(self):
         """JavaScript class names must be extracted."""
-        from codebatch.tasks.parse import parse_javascript
 
-        js_code = '''
+        js_code = """
 class ShoppingCart {
     constructor() {
         this.items = [];
@@ -659,7 +677,7 @@ class ShoppingCart {
         this.items.push(item);
     }
 }
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript(js_code, "test.js")
 
@@ -674,17 +692,17 @@ class ShoppingCart {
             return classes
 
         class_names = find_classes(ast_dict)
-        assert "ShoppingCart" in class_names, f"Class 'ShoppingCart' not found in {class_names}"
+        assert "ShoppingCart" in class_names, (
+            f"Class 'ShoppingCart' not found in {class_names}"
+        )
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_typescript_produces_real_ast(self):
         """TypeScript must produce structural AST."""
-        from codebatch.tasks.parse import parse_javascript
 
-        ts_code = '''
+        ts_code = """
 interface User {
     id: number;
     name: string;
@@ -695,7 +713,7 @@ function greetUser(user: User): string {
 }
 
 const users: User[] = [];
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript(ts_code, "test.ts")
 
@@ -705,18 +723,16 @@ const users: User[] = [];
         assert ast_dict.get("parser") == "tree-sitter"
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_js_import_extraction(self):
         """JavaScript imports must be extracted."""
-        from codebatch.tasks.parse import parse_javascript
 
-        js_code = '''
+        js_code = """
 import React from 'react';
 import { useState, useEffect } from 'react';
 import * as utils from './utils';
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript(js_code, "test.js")
 
@@ -731,17 +747,19 @@ import * as utils from './utils';
             return imports
 
         import_sources = find_imports(ast_dict)
-        assert "react" in import_sources, f"Import 'react' not found in {import_sources}"
+        assert "react" in import_sources, (
+            f"Import 'react' not found in {import_sources}"
+        )
 
     def test_fallback_when_treesitter_unavailable(self):
         """Fallback tokenization must work when tree-sitter not available."""
         from codebatch.tasks.parse import parse_javascript_fallback
 
-        js_code = '''
+        js_code = """
 function test() {
     return 42;
 }
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript_fallback(js_code, "test.js")
 
@@ -759,15 +777,13 @@ class TestGateP8JsSymbols:
     """
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_js_function_symbols_extracted(self):
         """JavaScript functions must be extracted as symbols."""
-        from codebatch.tasks.parse import parse_javascript
         from codebatch.tasks.symbols import extract_js_symbols
 
-        js_code = '''
+        js_code = """
 function calculateTotal(items) {
     return items.reduce((sum, item) => sum + item.price, 0);
 }
@@ -775,25 +791,27 @@ function calculateTotal(items) {
 function formatCurrency(amount) {
     return "$" + amount.toFixed(2);
 }
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript(js_code, "test.js")
         symbols, edges = extract_js_symbols(ast_dict, "test.js")
 
         symbol_names = [s["name"] for s in symbols if s["kind"] == "symbol"]
-        assert "calculateTotal" in symbol_names, f"Function 'calculateTotal' not found in {symbol_names}"
-        assert "formatCurrency" in symbol_names, f"Function 'formatCurrency' not found in {symbol_names}"
+        assert "calculateTotal" in symbol_names, (
+            f"Function 'calculateTotal' not found in {symbol_names}"
+        )
+        assert "formatCurrency" in symbol_names, (
+            f"Function 'formatCurrency' not found in {symbol_names}"
+        )
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_js_class_symbols_extracted(self):
         """JavaScript classes must be extracted as symbols."""
-        from codebatch.tasks.parse import parse_javascript
         from codebatch.tasks.symbols import extract_js_symbols
 
-        js_code = '''
+        js_code = """
 class ShoppingCart {
     constructor() {
         this.items = [];
@@ -807,30 +825,34 @@ class ShoppingCart {
         this.items.splice(index, 1);
     }
 }
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript(js_code, "test.js")
         symbols, edges = extract_js_symbols(ast_dict, "test.js")
 
         symbol_names = [s["name"] for s in symbols if s["kind"] == "symbol"]
-        assert "ShoppingCart" in symbol_names, f"Class 'ShoppingCart' not found in {symbol_names}"
-        assert "addItem" in symbol_names, f"Method 'addItem' not found in {symbol_names}"
-        assert "removeItem" in symbol_names, f"Method 'removeItem' not found in {symbol_names}"
+        assert "ShoppingCart" in symbol_names, (
+            f"Class 'ShoppingCart' not found in {symbol_names}"
+        )
+        assert "addItem" in symbol_names, (
+            f"Method 'addItem' not found in {symbol_names}"
+        )
+        assert "removeItem" in symbol_names, (
+            f"Method 'removeItem' not found in {symbol_names}"
+        )
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_js_variable_symbols_extracted(self):
         """JavaScript variables (const/let/var) must be extracted."""
-        from codebatch.tasks.parse import parse_javascript
         from codebatch.tasks.symbols import extract_js_symbols
 
-        js_code = '''
+        js_code = """
 const API_KEY = "secret";
 let counter = 0;
 var legacyVar = "old";
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript(js_code, "test.js")
         symbols, edges = extract_js_symbols(ast_dict, "test.js")
@@ -838,40 +860,42 @@ var legacyVar = "old";
         symbol_names = [s["name"] for s in symbols if s["kind"] == "symbol"]
         assert "API_KEY" in symbol_names, f"Const 'API_KEY' not found in {symbol_names}"
         assert "counter" in symbol_names, f"Let 'counter' not found in {symbol_names}"
-        assert "legacyVar" in symbol_names, f"Var 'legacyVar' not found in {symbol_names}"
+        assert "legacyVar" in symbol_names, (
+            f"Var 'legacyVar' not found in {symbol_names}"
+        )
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_js_import_edges_extracted(self):
         """JavaScript imports must create edge records."""
-        from codebatch.tasks.parse import parse_javascript
         from codebatch.tasks.symbols import extract_js_symbols
 
-        js_code = '''
+        js_code = """
 import React from 'react';
 import { useState, useEffect } from 'react';
 import * as utils from './utils';
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript(js_code, "test.js")
         symbols, edges = extract_js_symbols(ast_dict, "test.js")
 
         import_targets = [e["target"] for e in edges if e.get("edge_type") == "imports"]
-        assert "react" in import_targets, f"Import 'react' not found in {import_targets}"
-        assert "./utils" in import_targets, f"Import './utils' not found in {import_targets}"
+        assert "react" in import_targets, (
+            f"Import 'react' not found in {import_targets}"
+        )
+        assert "./utils" in import_targets, (
+            f"Import './utils' not found in {import_targets}"
+        )
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_js_class_inheritance_edge(self):
         """JavaScript class extends must create inheritance edge."""
-        from codebatch.tasks.parse import parse_javascript
         from codebatch.tasks.symbols import extract_js_symbols
 
-        js_code = '''
+        js_code = """
 class Animal {
     speak() {}
 }
@@ -879,24 +903,26 @@ class Animal {
 class Dog extends Animal {
     bark() {}
 }
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript(js_code, "test.js")
         symbols, edges = extract_js_symbols(ast_dict, "test.js")
 
-        inherit_targets = [e["target"] for e in edges if e.get("edge_type") == "inherits"]
-        assert "Animal" in inherit_targets, f"Inheritance 'Animal' not found in {inherit_targets}"
+        inherit_targets = [
+            e["target"] for e in edges if e.get("edge_type") == "inherits"
+        ]
+        assert "Animal" in inherit_targets, (
+            f"Inheritance 'Animal' not found in {inherit_targets}"
+        )
 
     @pytest.mark.skipif(
-        not _check_treesitter_available(),
-        reason="tree-sitter not installed"
+        not _check_treesitter_available(), reason="tree-sitter not installed"
     )
     def test_ts_symbols_extracted(self):
         """TypeScript symbols must be extracted."""
-        from codebatch.tasks.parse import parse_javascript
         from codebatch.tasks.symbols import extract_js_symbols
 
-        ts_code = '''
+        ts_code = """
 interface User {
     id: number;
     name: string;
@@ -913,15 +939,21 @@ class UserService {
         this.users.push(user);
     }
 }
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_javascript(ts_code, "test.ts")
         symbols, edges = extract_js_symbols(ast_dict, "test.ts")
 
         symbol_names = [s["name"] for s in symbols if s["kind"] == "symbol"]
-        assert "greetUser" in symbol_names, f"Function 'greetUser' not found in {symbol_names}"
-        assert "UserService" in symbol_names, f"Class 'UserService' not found in {symbol_names}"
-        assert "addUser" in symbol_names, f"Method 'addUser' not found in {symbol_names}"
+        assert "greetUser" in symbol_names, (
+            f"Function 'greetUser' not found in {symbol_names}"
+        )
+        assert "UserService" in symbol_names, (
+            f"Class 'UserService' not found in {symbol_names}"
+        )
+        assert "addUser" in symbol_names, (
+            f"Method 'addUser' not found in {symbol_names}"
+        )
 
     def test_js_symbols_fallback_mode(self):
         """Fallback mode should produce basic symbol info."""
@@ -949,39 +981,45 @@ class TestGateP8LintAst:
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.lint import lint_unused_imports
 
-        code = '''
+        code = """
 import os
 import sys
 from pathlib import Path
 
 def main():
     print(sys.argv)
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         diagnostics = lint_unused_imports(ast_dict, "test.py")
 
         # Should detect os and Path as unused
         unused_names = [d["message"] for d in diagnostics]
-        assert any("'os'" in msg for msg in unused_names), f"Unused 'os' not detected: {unused_names}"
-        assert any("'Path'" in msg for msg in unused_names), f"Unused 'Path' not detected: {unused_names}"
+        assert any("'os'" in msg for msg in unused_names), (
+            f"Unused 'os' not detected: {unused_names}"
+        )
+        assert any("'Path'" in msg for msg in unused_names), (
+            f"Unused 'Path' not detected: {unused_names}"
+        )
 
         # sys should NOT be flagged (it's used)
-        assert not any("'sys'" in msg for msg in unused_names), f"'sys' incorrectly flagged as unused"
+        assert not any("'sys'" in msg for msg in unused_names), (
+            "'sys' incorrectly flagged as unused"
+        )
 
     def test_used_import_not_flagged(self):
         """Used imports should not be flagged."""
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.lint import lint_unused_imports
 
-        code = '''
+        code = """
 import json
 from typing import List, Dict
 
 def serialize(data: Dict) -> str:
     items: List[str] = []
     return json.dumps(data)
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         diagnostics = lint_unused_imports(ast_dict, "test.py")
@@ -994,49 +1032,57 @@ def serialize(data: Dict) -> str:
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.lint import lint_unused_variables
 
-        code = '''
+        code = """
 def process():
     x = 1
     y = 2
     z = 3
     return z
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         diagnostics = lint_unused_variables(ast_dict, "test.py")
 
         # x and y are unused
         unused_names = [d["message"] for d in diagnostics]
-        assert any("'x'" in msg for msg in unused_names), f"Unused 'x' not detected: {unused_names}"
-        assert any("'y'" in msg for msg in unused_names), f"Unused 'y' not detected: {unused_names}"
+        assert any("'x'" in msg for msg in unused_names), (
+            f"Unused 'x' not detected: {unused_names}"
+        )
+        assert any("'y'" in msg for msg in unused_names), (
+            f"Unused 'y' not detected: {unused_names}"
+        )
 
         # z is used
-        assert not any("'z'" in msg for msg in unused_names), f"'z' incorrectly flagged as unused"
+        assert not any("'z'" in msg for msg in unused_names), (
+            "'z' incorrectly flagged as unused"
+        )
 
     def test_underscore_variable_not_flagged(self):
         """Variables starting with _ should not be flagged."""
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.lint import lint_unused_variables
 
-        code = '''
+        code = """
 def process():
     _unused = get_value()
     _ = ignored()
     __dunder = special()
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         diagnostics = lint_unused_variables(ast_dict, "test.py")
 
         # Underscore-prefixed variables are intentionally unused
-        assert len(diagnostics) == 0, f"False positives for underscore vars: {diagnostics}"
+        assert len(diagnostics) == 0, (
+            f"False positives for underscore vars: {diagnostics}"
+        )
 
     def test_variable_shadowing_detected(self):
         """Must detect variable shadowing."""
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.lint import lint_variable_shadowing
 
-        code = '''
+        code = """
 x = 10
 
 def outer():
@@ -1047,7 +1093,7 @@ def outer():
         return x
 
     return inner()
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         diagnostics = lint_variable_shadowing(ast_dict, "test.py")
@@ -1061,13 +1107,13 @@ def outer():
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.lint import lint_python_ast
 
-        code = '''
+        code = """
 import os
 
 def process():
     x = 1
     return 42
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         diagnostics = lint_python_ast(ast_dict, "test.py", {})
@@ -1092,12 +1138,14 @@ def process():
         corpus.mkdir()
 
         test_file = corpus / "test.py"
-        test_file.write_text('''
+        test_file.write_text(
+            """
 import os
 import sys
 
 print(sys.version)
-'''.strip())
+""".strip()
+        )
 
         # Initialize store and create snapshot
         store = tmp_path / "store"
@@ -1121,6 +1169,7 @@ print(sys.version)
 
         # Query lint outputs
         from codebatch.query import QueryEngine
+
         engine = QueryEngine(store)
         all_outputs = engine.query_outputs(batch_id, "04_lint")
 
@@ -1139,85 +1188,93 @@ class TestGateP8Metrics:
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.analyze import calculate_function_complexity
 
-        code = '''
+        code = """
 def simple():
     return 42
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         func_node = ast_dict["body"][0]
 
         complexity = calculate_function_complexity(func_node)
-        assert complexity == 1, f"Simple function should have complexity 1, got {complexity}"
+        assert complexity == 1, (
+            f"Simple function should have complexity 1, got {complexity}"
+        )
 
     def test_if_statement_complexity(self):
         """If statement increases complexity."""
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.analyze import calculate_function_complexity
 
-        code = '''
+        code = """
 def conditional(x):
     if x > 0:
         return "positive"
     return "non-positive"
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         func_node = ast_dict["body"][0]
 
         complexity = calculate_function_complexity(func_node)
-        assert complexity == 2, f"Expected complexity 2 (1 base + 1 if), got {complexity}"
+        assert complexity == 2, (
+            f"Expected complexity 2 (1 base + 1 if), got {complexity}"
+        )
 
     def test_nested_if_complexity(self):
         """Nested if statements add complexity."""
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.analyze import calculate_function_complexity
 
-        code = '''
+        code = """
 def nested(x):
     if x > 0:
         if x > 10:
             return "large"
         return "small"
     return "negative"
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         func_node = ast_dict["body"][0]
 
         complexity = calculate_function_complexity(func_node)
-        assert complexity == 3, f"Expected complexity 3 (1 base + 2 ifs), got {complexity}"
+        assert complexity == 3, (
+            f"Expected complexity 3 (1 base + 2 ifs), got {complexity}"
+        )
 
     def test_loop_complexity(self):
         """Loops increase complexity."""
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.analyze import calculate_function_complexity
 
-        code = '''
+        code = """
 def loopy(items):
     for item in items:
         while item > 0:
             item -= 1
     return items
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         func_node = ast_dict["body"][0]
 
         complexity = calculate_function_complexity(func_node)
-        assert complexity == 3, f"Expected complexity 3 (1 base + 1 for + 1 while), got {complexity}"
+        assert complexity == 3, (
+            f"Expected complexity 3 (1 base + 1 for + 1 while), got {complexity}"
+        )
 
     def test_boolean_ops_complexity(self):
         """Boolean operators increase complexity."""
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.analyze import calculate_function_complexity
 
-        code = '''
+        code = """
 def check(a, b, c):
     if a and b or c:
         return True
     return False
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         func_node = ast_dict["body"][0]
@@ -1231,7 +1288,7 @@ def check(a, b, c):
         from codebatch.tasks.parse import parse_python
         from codebatch.tasks.analyze import extract_complexity_metrics
 
-        code = '''
+        code = """
 import os
 import sys
 
@@ -1247,7 +1304,7 @@ class Calculator:
 def main():
     calc = Calculator()
     print(calc.add(1, 2))
-'''.strip()
+""".strip()
 
         ast_dict, _ = parse_python(code, "test.py")
         metrics = extract_complexity_metrics(ast_dict, "test.py")
@@ -1261,10 +1318,18 @@ def main():
         assert "class_count" in metrics_dict
         assert "import_count" in metrics_dict
 
-        assert metrics_dict["class_count"] == 1, f"Expected 1 class, got {metrics_dict['class_count']}"
-        assert metrics_dict["function_count"] == 3, f"Expected 3 functions (add, divide, main), got {metrics_dict['function_count']}"
-        assert metrics_dict["import_count"] == 2, f"Expected 2 imports, got {metrics_dict['import_count']}"
-        assert metrics_dict["max_complexity"] == 2, f"Expected max complexity 2 (divide has if), got {metrics_dict['max_complexity']}"
+        assert metrics_dict["class_count"] == 1, (
+            f"Expected 1 class, got {metrics_dict['class_count']}"
+        )
+        assert metrics_dict["function_count"] == 3, (
+            f"Expected 3 functions (add, divide, main), got {metrics_dict['function_count']}"
+        )
+        assert metrics_dict["import_count"] == 2, (
+            f"Expected 2 imports, got {metrics_dict['import_count']}"
+        )
+        assert metrics_dict["max_complexity"] == 2, (
+            f"Expected max complexity 2 (divide has if), got {metrics_dict['max_complexity']}"
+        )
 
     def test_analyze_executor_produces_complexity(self, tmp_path):
         """analyze_executor should produce complexity metrics."""
@@ -1281,12 +1346,14 @@ def main():
         corpus.mkdir()
 
         test_file = corpus / "test.py"
-        test_file.write_text('''
+        test_file.write_text(
+            """
 def process(items):
     for item in items:
         if item > 0:
             print(item)
-'''.strip())
+""".strip()
+        )
 
         # Initialize store
         store = tmp_path / "store"
@@ -1310,6 +1377,7 @@ def process(items):
 
         # Query analyze outputs
         from codebatch.query import QueryEngine
+
         engine = QueryEngine(store)
         all_outputs = engine.query_outputs(batch_id, "02_analyze")
 
@@ -1322,7 +1390,9 @@ def process(items):
         # Find complexity value
         complexity_metric = next(m for m in metrics if m.get("metric") == "complexity")
         # 1 base + 1 for + 1 if = 3
-        assert complexity_metric["value"] == 3, f"Expected complexity 3, got {complexity_metric['value']}"
+        assert complexity_metric["value"] == 3, (
+            f"Expected complexity 3, got {complexity_metric['value']}"
+        )
 
 
 class TestGateP8SelfHost:
@@ -1385,11 +1455,15 @@ class TestGateP8SelfHost:
         ]
 
         for func_name in expected_functions:
-            assert func_name in symbol_names, f"Expected function '{func_name}' not found in symbols"
+            assert func_name in symbol_names, (
+                f"Expected function '{func_name}' not found in symbols"
+            )
 
         # Must NOT have placeholder names
-        placeholder_pattern = re.compile(r'^(function|class|variable|module)_\d+$')
-        placeholders = [name for name in symbol_names if placeholder_pattern.match(str(name))]
+        placeholder_pattern = re.compile(r"^(function|class|variable|module)_\d+$")
+        placeholders = [
+            name for name in symbol_names if placeholder_pattern.match(str(name))
+        ]
         assert len(placeholders) == 0, f"Found placeholder symbols: {placeholders[:10]}"
 
     def test_self_analysis_produces_imports(self, tmp_path):
@@ -1437,13 +1511,17 @@ class TestGateP8SelfHost:
         import_targets = [e.get("target") for e in import_edges]
 
         # Must have import edges
-        assert len(import_edges) >= 10, f"Expected at least 10 import edges, got {len(import_edges)}"
+        assert len(import_edges) >= 10, (
+            f"Expected at least 10 import edges, got {len(import_edges)}"
+        )
 
         # Must include real module imports
         expected_imports = ["json", "typing"]
         for imp in expected_imports:
             # Check if any import target starts with or equals the expected
-            found = any(t == imp or (t and t.startswith(f"{imp}.")) for t in import_targets)
+            found = any(
+                t == imp or (t and t.startswith(f"{imp}.")) for t in import_targets
+            )
             assert found, f"Expected import '{imp}' not found in imports"
 
     def test_self_analysis_produces_metrics(self, tmp_path):
@@ -1499,7 +1577,9 @@ class TestGateP8SelfHost:
         total_complexity = sum(m.get("value", 0) for m in complexity_metrics)
 
         # Codebatch source should have non-trivial complexity
-        assert total_complexity >= 20, f"Expected complexity >= 20, got {total_complexity}"
+        assert total_complexity >= 20, (
+            f"Expected complexity >= 20, got {total_complexity}"
+        )
 
     def test_full_pipeline_end_to_end(self, tmp_path):
         """Full pipeline must complete successfully on codebatch source."""
@@ -1568,7 +1648,7 @@ class TestGateP8SelfHost:
         # Lint diagnostics may or may not exist depending on code quality
         # Just verify we got the outputs
 
-        print(f"Self-host analysis complete:")
+        print("Self-host analysis complete:")
         print(f"  AST outputs: {ast_count}")
         print(f"  Symbol outputs: {symbol_count}")
         print(f"  Metric outputs: {metric_count}")

@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from codebatch.batch import BatchManager, generate_batch_id, PIPELINES
+from codebatch.batch import BatchManager, generate_batch_id
 from codebatch.snapshot import SnapshotBuilder
 
 
@@ -133,8 +133,8 @@ class TestBatchManager:
         """Can list all batches."""
         manager = BatchManager(store)
 
-        id1 = manager.init_batch(snapshot_id, "parse", batch_id="batch-1")
-        id2 = manager.init_batch(snapshot_id, "parse", batch_id="batch-2")
+        manager.init_batch(snapshot_id, "parse", batch_id="batch-1")
+        manager.init_batch(snapshot_id, "parse", batch_id="batch-2")
 
         batches = manager.list_batches()
         assert set(batches) == {"batch-1", "batch-2"}

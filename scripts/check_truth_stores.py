@@ -28,11 +28,11 @@ from pathlib import Path
 
 # Allowed write path patterns (relative to store root)
 ALLOWED_PATTERNS = [
-    "objects/",           # CAS blobs
-    "snapshots/",         # Snapshot creation (immutable after)
-    "batches/",           # Batch/task/shard data
-    "indexes/",           # Optional cache
-    "store.json",         # Store metadata
+    "objects/",  # CAS blobs
+    "snapshots/",  # Snapshot creation (immutable after)
+    "batches/",  # Batch/task/shard data
+    "indexes/",  # Optional cache
+    "store.json",  # Store metadata
 ]
 
 # Write-related function/method names to check
@@ -71,11 +71,13 @@ class WritePatternVisitor(ast.NodeVisitor):
                 if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
                     path = arg.value
                     if not self._is_allowed_path(path):
-                        self.findings.append({
-                            "line": node.lineno,
-                            "func": func_name,
-                            "path": path,
-                        })
+                        self.findings.append(
+                            {
+                                "line": node.lineno,
+                                "func": func_name,
+                                "path": path,
+                            }
+                        )
 
         self.generic_visit(node)
 

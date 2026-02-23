@@ -12,6 +12,7 @@ import pytest
 
 try:
     import jsonschema
+
     HAS_JSONSCHEMA = True
 except ImportError:
     HAS_JSONSCHEMA = False
@@ -246,6 +247,7 @@ class TestPrintError:
 
         # Redirect to stdout for easier capture
         import sys
+
         print_error(error, json_mode=True, file=sys.stdout)
 
         captured = capsys.readouterr()
@@ -261,6 +263,7 @@ class TestPrintError:
         )
 
         import sys
+
         print_error(error, json_mode=False, file=sys.stdout)
 
         captured = capsys.readouterr()
@@ -276,6 +279,7 @@ class TestErrorSchemaValidation:
     def error_schema(self):
         """Load the error schema."""
         from pathlib import Path
+
         schema_path = Path(__file__).parent.parent / "schemas" / "error.schema.json"
         if not schema_path.exists():
             pytest.skip("Error schema not found")
@@ -299,20 +303,23 @@ class TestErrorSchemaValidation:
 
         jsonschema.validate(error.to_dict(), error_schema)
 
-    @pytest.mark.parametrize("factory", [
-        lambda: store_not_found("/path"),
-        lambda: store_invalid("/path", "reason"),
-        lambda: store_exists("/path"),
-        lambda: batch_not_found("batch-123"),
-        lambda: snapshot_not_found("snap-123"),
-        lambda: pipeline_not_found("pipe"),
-        lambda: task_not_found("task"),
-        lambda: gate_not_found("gate"),
-        lambda: invalid_argument("arg", "val"),
-        lambda: file_not_found("/file"),
-        lambda: command_error("msg"),
-        lambda: internal_error("msg"),
-    ])
+    @pytest.mark.parametrize(
+        "factory",
+        [
+            lambda: store_not_found("/path"),
+            lambda: store_invalid("/path", "reason"),
+            lambda: store_exists("/path"),
+            lambda: batch_not_found("batch-123"),
+            lambda: snapshot_not_found("snap-123"),
+            lambda: pipeline_not_found("pipe"),
+            lambda: task_not_found("task"),
+            lambda: gate_not_found("gate"),
+            lambda: invalid_argument("arg", "val"),
+            lambda: file_not_found("/file"),
+            lambda: command_error("msg"),
+            lambda: internal_error("msg"),
+        ],
+    )
     def test_all_factories_validate(self, error_schema, factory):
         """All factory-created errors should validate against schema."""
         error = factory()

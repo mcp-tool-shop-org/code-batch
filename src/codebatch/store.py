@@ -11,7 +11,6 @@ A CodeBatch store is a directory with a specific layout:
 
 import json
 from pathlib import Path
-from typing import Optional
 
 from .common import SCHEMA_VERSION, PRODUCER, utc_now_z
 
@@ -112,14 +111,12 @@ def load_store(store_root: Path) -> dict:
     # Validate required fields
     if store_meta.get("schema_name") != "codebatch.store":
         raise InvalidStoreError(
-            store_root,
-            f"invalid schema_name: {store_meta.get('schema_name')}"
+            store_root, f"invalid schema_name: {store_meta.get('schema_name')}"
         )
 
     if not isinstance(store_meta.get("schema_version"), int):
         raise InvalidStoreError(
-            store_root,
-            f"invalid schema_version: {store_meta.get('schema_version')}"
+            store_root, f"invalid schema_version: {store_meta.get('schema_version')}"
         )
 
     return store_meta

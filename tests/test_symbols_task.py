@@ -257,15 +257,23 @@ class TestSymbolsExecutor:
         # Run symbols - need to add to batch first
         # For now, create a manual batch with symbols task
         from codebatch.batch import PIPELINES
+
         PIPELINES["parse_symbols"] = {
             "description": "Parse and extract symbols",
             "tasks": [
                 {"task_id": "01_parse", "type": "parse", "config": {}},
-                {"task_id": "03_symbols", "type": "symbols", "depends_on": ["01_parse"], "config": {}},
+                {
+                    "task_id": "03_symbols",
+                    "type": "symbols",
+                    "depends_on": ["01_parse"],
+                    "config": {},
+                },
             ],
         }
 
-        batch_id = batch_manager.init_batch(snapshot_id, "parse_symbols", batch_id="batch-symbols-test")
+        batch_id = batch_manager.init_batch(
+            snapshot_id, "parse_symbols", batch_id="batch-symbols-test"
+        )
         runner.run_shard(batch_id, "01_parse", shard_id, parse_executor)
         state = runner.run_shard(batch_id, "03_symbols", shard_id, symbols_executor)
 
@@ -278,17 +286,24 @@ class TestSymbolsExecutor:
         symbol_outputs = [o for o in outputs if o.get("kind") == "symbol"]
         edge_outputs = [o for o in outputs if o.get("kind") == "edge"]
 
-        assert len(symbol_outputs) > 0 or len(edge_outputs) > 0, \
+        assert len(symbol_outputs) > 0 or len(edge_outputs) > 0, (
             "No symbols or edges produced from Python file"
+        )
 
     def test_symbols_have_required_fields(self, clean_store: Path, corpus_dir: Path):
         """Symbol records have all required fields."""
         from codebatch.batch import PIPELINES
+
         PIPELINES["parse_symbols"] = {
             "description": "Parse and extract symbols",
             "tasks": [
                 {"task_id": "01_parse", "type": "parse", "config": {}},
-                {"task_id": "03_symbols", "type": "symbols", "depends_on": ["01_parse"], "config": {}},
+                {
+                    "task_id": "03_symbols",
+                    "type": "symbols",
+                    "depends_on": ["01_parse"],
+                    "config": {},
+                },
             ],
         }
 
@@ -322,11 +337,17 @@ class TestSymbolsExecutor:
     def test_edges_have_required_fields(self, clean_store: Path, corpus_dir: Path):
         """Edge records have all required fields."""
         from codebatch.batch import PIPELINES
+
         PIPELINES["parse_symbols"] = {
             "description": "Parse and extract symbols",
             "tasks": [
                 {"task_id": "01_parse", "type": "parse", "config": {}},
-                {"task_id": "03_symbols", "type": "symbols", "depends_on": ["01_parse"], "config": {}},
+                {
+                    "task_id": "03_symbols",
+                    "type": "symbols",
+                    "depends_on": ["01_parse"],
+                    "config": {},
+                },
             ],
         }
 
@@ -364,11 +385,17 @@ class TestSymbolsIntegration:
     def test_join_query_files_with_symbols(self, clean_store: Path, corpus_dir: Path):
         """Can query files that have symbols vs those that don't."""
         from codebatch.batch import PIPELINES
+
         PIPELINES["parse_symbols"] = {
             "description": "Parse and extract symbols",
             "tasks": [
                 {"task_id": "01_parse", "type": "parse", "config": {}},
-                {"task_id": "03_symbols", "type": "symbols", "depends_on": ["01_parse"], "config": {}},
+                {
+                    "task_id": "03_symbols",
+                    "type": "symbols",
+                    "depends_on": ["01_parse"],
+                    "config": {},
+                },
             ],
         }
 
@@ -391,8 +418,12 @@ class TestSymbolsIntegration:
         all_outputs = engine.query_outputs(batch_id, "03_symbols")
 
         # Group by path
-        paths_with_symbols = set(o["path"] for o in all_outputs if o.get("kind") == "symbol")
-        paths_with_edges = set(o["path"] for o in all_outputs if o.get("kind") == "edge")
+        paths_with_symbols = set(
+            o["path"] for o in all_outputs if o.get("kind") == "symbol"
+        )
+        paths_with_edges = set(
+            o["path"] for o in all_outputs if o.get("kind") == "edge"
+        )
 
         # At least some paths should have symbols or edges
         all_paths_with_output = paths_with_symbols | paths_with_edges

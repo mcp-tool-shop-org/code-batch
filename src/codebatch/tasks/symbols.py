@@ -14,7 +14,7 @@ Phase 8: Full symbol extraction with real names from full-fidelity AST.
 """
 
 import json
-from typing import Any, Iterable, Optional
+from typing import Iterable, Optional
 
 from ..runner import ShardRunner
 
@@ -66,30 +66,34 @@ def _extract_symbols_from_node(
     if node_type in ("FunctionDef", "AsyncFunctionDef"):
         name = node.get("name")
         if name:
-            symbols.append({
-                "kind": "symbol",
-                "path": path,
-                "name": name,
-                "symbol_type": "function",
-                "line": lineno,
-                "col": col,
-                "scope": scope,
-            })
+            symbols.append(
+                {
+                    "kind": "symbol",
+                    "path": path,
+                    "name": name,
+                    "symbol_type": "function",
+                    "line": lineno,
+                    "col": col,
+                    "scope": scope,
+                }
+            )
 
             # Extract parameters as symbols
             args = node.get("args", {})
             for arg_info in args.get("args", []):
                 arg_name = arg_info.get("arg")
                 if arg_name and arg_name != "self" and arg_name != "cls":
-                    symbols.append({
-                        "kind": "symbol",
-                        "path": path,
-                        "name": arg_name,
-                        "symbol_type": "parameter",
-                        "line": lineno,
-                        "col": col,
-                        "scope": name,
-                    })
+                    symbols.append(
+                        {
+                            "kind": "symbol",
+                            "path": path,
+                            "name": arg_name,
+                            "symbol_type": "parameter",
+                            "line": lineno,
+                            "col": col,
+                            "scope": name,
+                        }
+                    )
 
             # Recurse into function body with new scope
             for child in node.get("body", []):
@@ -99,15 +103,17 @@ def _extract_symbols_from_node(
     elif node_type == "ClassDef":
         name = node.get("name")
         if name:
-            symbols.append({
-                "kind": "symbol",
-                "path": path,
-                "name": name,
-                "symbol_type": "class",
-                "line": lineno,
-                "col": col,
-                "scope": scope,
-            })
+            symbols.append(
+                {
+                    "kind": "symbol",
+                    "path": path,
+                    "name": name,
+                    "symbol_type": "class",
+                    "line": lineno,
+                    "col": col,
+                    "scope": scope,
+                }
+            )
 
             # Extract base classes as edges
             for base in node.get("bases", []):
@@ -118,13 +124,15 @@ def _extract_symbols_from_node(
                     base_name = base.get("attr")
 
                 if base_name:
-                    edges.append({
-                        "kind": "edge",
-                        "path": path,
-                        "edge_type": "inherits",
-                        "target": base_name,
-                        "line": lineno,
-                    })
+                    edges.append(
+                        {
+                            "kind": "edge",
+                            "path": path,
+                            "edge_type": "inherits",
+                            "target": base_name,
+                            "line": lineno,
+                        }
+                    )
 
             # Recurse into class body with class as scope
             for child in node.get("body", []):
@@ -136,24 +144,28 @@ def _extract_symbols_from_node(
             module_name = name_info.get("name")
             alias = name_info.get("asname")
             if module_name:
-                edges.append({
-                    "kind": "edge",
-                    "path": path,
-                    "edge_type": "imports",
-                    "target": module_name,
-                    "line": lineno,
-                })
+                edges.append(
+                    {
+                        "kind": "edge",
+                        "path": path,
+                        "edge_type": "imports",
+                        "target": module_name,
+                        "line": lineno,
+                    }
+                )
                 # If aliased, also create a symbol for the alias
                 if alias:
-                    symbols.append({
-                        "kind": "symbol",
-                        "path": path,
-                        "name": alias,
-                        "symbol_type": "import_alias",
-                        "line": lineno,
-                        "col": col,
-                        "scope": scope,
-                    })
+                    symbols.append(
+                        {
+                            "kind": "symbol",
+                            "path": path,
+                            "name": alias,
+                            "symbol_type": "import_alias",
+                            "line": lineno,
+                            "col": col,
+                            "scope": scope,
+                        }
+                    )
 
     elif node_type == "ImportFrom":
         module = node.get("module") or ""
@@ -162,54 +174,62 @@ def _extract_symbols_from_node(
             alias = name_info.get("asname")
             if import_name:
                 full_target = f"{module}.{import_name}" if module else import_name
-                edges.append({
-                    "kind": "edge",
-                    "path": path,
-                    "edge_type": "imports",
-                    "target": full_target,
-                    "line": lineno,
-                })
+                edges.append(
+                    {
+                        "kind": "edge",
+                        "path": path,
+                        "edge_type": "imports",
+                        "target": full_target,
+                        "line": lineno,
+                    }
+                )
                 # If aliased, create symbol for alias
                 if alias:
-                    symbols.append({
-                        "kind": "symbol",
-                        "path": path,
-                        "name": alias,
-                        "symbol_type": "import_alias",
-                        "line": lineno,
-                        "col": col,
-                        "scope": scope,
-                    })
+                    symbols.append(
+                        {
+                            "kind": "symbol",
+                            "path": path,
+                            "name": alias,
+                            "symbol_type": "import_alias",
+                            "line": lineno,
+                            "col": col,
+                            "scope": scope,
+                        }
+                    )
 
     # Assignments
     elif node_type == "Assign":
         for target in node.get("targets", []):
             var_name = _extract_name_from_target(target)
             if var_name:
-                symbols.append({
-                    "kind": "symbol",
-                    "path": path,
-                    "name": var_name,
-                    "symbol_type": "variable",
-                    "line": lineno,
-                    "col": col,
-                    "scope": scope,
-                })
+                symbols.append(
+                    {
+                        "kind": "symbol",
+                        "path": path,
+                        "name": var_name,
+                        "symbol_type": "variable",
+                        "line": lineno,
+                        "col": col,
+                        "scope": scope,
+                    }
+                )
 
     elif node_type == "AnnAssign":
         target = node.get("target")
         if target:
             var_name = _extract_name_from_target(target)
             if var_name:
-                symbols.append({
-                    "kind": "symbol",
-                    "path": path,
-                    "name": var_name,
-                    "symbol_type": "variable",
-                    "line": lineno,
-                    "col": col,
-                    "scope": scope,
-                })
+                symbols.append(
+                    {
+                        "kind": "symbol",
+                        "path": path,
+                        "name": var_name,
+                        "symbol_type": "variable",
+                        "line": lineno,
+                        "col": col,
+                        "scope": scope,
+                    }
+                )
 
     # For/While/If/With - recurse into body and orelse
     elif node_type in ("For", "While", "If", "With", "AsyncFor", "AsyncWith"):
@@ -232,15 +252,17 @@ def _extract_symbols_from_node(
         # Exception variable (e.g., `except ValueError as e:`)
         exc_name = node.get("name")
         if exc_name:
-            symbols.append({
-                "kind": "symbol",
-                "path": path,
-                "name": exc_name,
-                "symbol_type": "variable",
-                "line": lineno,
-                "col": col,
-                "scope": scope,
-            })
+            symbols.append(
+                {
+                    "kind": "symbol",
+                    "path": path,
+                    "name": exc_name,
+                    "symbol_type": "variable",
+                    "line": lineno,
+                    "col": col,
+                    "scope": scope,
+                }
+            )
         for child in node.get("body", []):
             _extract_symbols_from_node(child, path, scope, symbols, edges)
 
@@ -295,15 +317,17 @@ def _extract_js_symbols_from_node(
     if node_type == "function_declaration":
         name = node.get("name")
         if name:
-            symbols.append({
-                "kind": "symbol",
-                "path": path,
-                "name": name,
-                "symbol_type": "function",
-                "line": lineno,
-                "col": col,
-                "scope": scope,
-            })
+            symbols.append(
+                {
+                    "kind": "symbol",
+                    "path": path,
+                    "name": name,
+                    "symbol_type": "function",
+                    "line": lineno,
+                    "col": col,
+                    "scope": scope,
+                }
+            )
             # Recurse into function body with new scope
             for child in node.get("children", []):
                 _extract_js_symbols_from_node(child, path, name, symbols, edges)
@@ -316,15 +340,17 @@ def _extract_js_symbols_from_node(
     if node_type == "method_definition":
         name = node.get("name")
         if name:
-            symbols.append({
-                "kind": "symbol",
-                "path": path,
-                "name": name,
-                "symbol_type": "function",
-                "line": lineno,
-                "col": col,
-                "scope": scope,
-            })
+            symbols.append(
+                {
+                    "kind": "symbol",
+                    "path": path,
+                    "name": name,
+                    "symbol_type": "function",
+                    "line": lineno,
+                    "col": col,
+                    "scope": scope,
+                }
+            )
             for child in node.get("children", []):
                 _extract_js_symbols_from_node(child, path, name, symbols, edges)
             return
@@ -339,30 +365,37 @@ def _extract_js_symbols_from_node(
                     name = child.get("name")
                     break
         if name:
-            symbols.append({
-                "kind": "symbol",
-                "path": path,
-                "name": name,
-                "symbol_type": "class",
-                "line": lineno,
-                "col": col,
-                "scope": scope,
-            })
+            symbols.append(
+                {
+                    "kind": "symbol",
+                    "path": path,
+                    "name": name,
+                    "symbol_type": "class",
+                    "line": lineno,
+                    "col": col,
+                    "scope": scope,
+                }
+            )
             # Look for extends clause
             for child in node.get("children", []):
                 if child.get("type") == "class_heritage":
                     # Find the extended class name
                     for heritage_child in child.get("children", []):
-                        if heritage_child.get("type") in ("identifier", "type_identifier"):
+                        if heritage_child.get("type") in (
+                            "identifier",
+                            "type_identifier",
+                        ):
                             base_name = heritage_child.get("name")
                             if base_name:
-                                edges.append({
-                                    "kind": "edge",
-                                    "path": path,
-                                    "edge_type": "inherits",
-                                    "target": base_name,
-                                    "line": lineno,
-                                })
+                                edges.append(
+                                    {
+                                        "kind": "edge",
+                                        "path": path,
+                                        "edge_type": "inherits",
+                                        "target": base_name,
+                                        "line": lineno,
+                                    }
+                                )
             # Recurse with class as scope
             for child in node.get("children", []):
                 _extract_js_symbols_from_node(child, path, name, symbols, edges)
@@ -372,27 +405,31 @@ def _extract_js_symbols_from_node(
     if node_type == "variable_declarator":
         name = node.get("name")
         if name:
-            symbols.append({
-                "kind": "symbol",
-                "path": path,
-                "name": name,
-                "symbol_type": "variable",
-                "line": lineno,
-                "col": col,
-                "scope": scope,
-            })
+            symbols.append(
+                {
+                    "kind": "symbol",
+                    "path": path,
+                    "name": name,
+                    "symbol_type": "variable",
+                    "line": lineno,
+                    "col": col,
+                    "scope": scope,
+                }
+            )
 
     # Import statements
     if node_type == "import_statement":
         source = node.get("source")
         if source:
-            edges.append({
-                "kind": "edge",
-                "path": path,
-                "edge_type": "imports",
-                "target": source,
-                "line": lineno,
-            })
+            edges.append(
+                {
+                    "kind": "edge",
+                    "path": path,
+                    "edge_type": "imports",
+                    "target": source,
+                    "line": lineno,
+                }
+            )
         # Extract imported identifiers
         for child in node.get("children", []):
             if child.get("type") == "import_clause":
@@ -413,13 +450,15 @@ def _extract_js_symbols_from_node(
                     if export_child.get("type") == "export_specifier":
                         export_name = export_child.get("name")
                         if export_name:
-                            edges.append({
-                                "kind": "edge",
-                                "path": path,
-                                "edge_type": "exports",
-                                "target": export_name,
-                                "line": lineno,
-                            })
+                            edges.append(
+                                {
+                                    "kind": "edge",
+                                    "path": path,
+                                    "edge_type": "exports",
+                                    "target": export_name,
+                                    "line": lineno,
+                                }
+                            )
         return  # Handled above
 
     # Recurse into children by default
@@ -450,33 +489,39 @@ def _extract_import_identifiers(
         if child_type == "identifier":
             name = child.get("name")
             if name:
-                symbols.append({
-                    "kind": "symbol",
-                    "path": path,
-                    "name": name,
-                    "symbol_type": "import_alias",
-                    "line": lineno,
-                    "col": col,
-                    "scope": scope,
-                })
+                symbols.append(
+                    {
+                        "kind": "symbol",
+                        "path": path,
+                        "name": name,
+                        "symbol_type": "import_alias",
+                        "line": lineno,
+                        "col": col,
+                        "scope": scope,
+                    }
+                )
         elif child_type == "import_specifier":
             # { foo as bar }
             name = child.get("name")
             if name:
-                symbols.append({
-                    "kind": "symbol",
-                    "path": path,
-                    "name": name,
-                    "symbol_type": "import_alias",
-                    "line": lineno,
-                    "col": col,
-                    "scope": scope,
-                })
+                symbols.append(
+                    {
+                        "kind": "symbol",
+                        "path": path,
+                        "name": name,
+                        "symbol_type": "import_alias",
+                        "line": lineno,
+                        "col": col,
+                        "scope": scope,
+                    }
+                )
         elif child_type == "named_imports":
             _extract_import_identifiers(child, path, scope, symbols, lineno, col)
 
 
-def extract_js_symbols_treesitter(ast_data: dict, path: str) -> tuple[list[dict], list[dict]]:
+def extract_js_symbols_treesitter(
+    ast_data: dict, path: str
+) -> tuple[list[dict], list[dict]]:
     """Extract symbols from tree-sitter JavaScript/TypeScript AST.
 
     Args:
@@ -496,7 +541,9 @@ def extract_js_symbols_treesitter(ast_data: dict, path: str) -> tuple[list[dict]
     return symbols, edges
 
 
-def extract_js_symbols_fallback(ast_data: dict, path: str) -> tuple[list[dict], list[dict]]:
+def extract_js_symbols_fallback(
+    ast_data: dict, path: str
+) -> tuple[list[dict], list[dict]]:
     """Extract symbols from fallback JavaScript/TypeScript token data.
 
     Since we only have token counts (not full AST), we provide basic info.
@@ -515,15 +562,17 @@ def extract_js_symbols_fallback(ast_data: dict, path: str) -> tuple[list[dict], 
 
     # If we have functions, emit a summary symbol
     if tokens.get("keyword", 0) > 0:
-        symbols.append({
-            "kind": "symbol",
-            "path": path,
-            "name": "js_module",
-            "symbol_type": "module",
-            "line": 1,
-            "col": 0,
-            "scope": "file",
-        })
+        symbols.append(
+            {
+                "kind": "symbol",
+                "path": path,
+                "name": "js_module",
+                "symbol_type": "module",
+                "line": 1,
+                "col": 0,
+                "scope": "file",
+            }
+        )
 
     return symbols, edges
 
@@ -564,7 +613,9 @@ def extract_text_symbols(ast_data: dict, path: str) -> tuple[list[dict], list[di
     return [], []
 
 
-def symbols_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -> list[dict]:
+def symbols_executor(
+    config: dict, files: Iterable[dict], runner: ShardRunner
+) -> list[dict]:
     """Execute the symbols task.
 
     Consumes AST outputs from 01_parse and produces symbol tables and edges.
@@ -593,7 +644,9 @@ def symbols_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -
         return []
 
     # Iterate over parse AST outputs for this shard
-    for ast_output in runner.iter_prior_outputs(batch_id, "01_parse", shard_id, kind="ast"):
+    for ast_output in runner.iter_prior_outputs(
+        batch_id, "01_parse", shard_id, kind="ast"
+    ):
         path = ast_output.get("path")
         object_ref = ast_output.get("object")
         fmt = ast_output.get("format", "json")
@@ -636,13 +689,15 @@ def symbols_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -
 
         except Exception as e:
             # Emit diagnostic for failures
-            outputs.append({
-                "kind": "diagnostic",
-                "path": path,
-                "severity": "warning",
-                "code": "SYMBOLS_EXTRACT_ERROR",
-                "message": f"Failed to extract symbols: {e}",
-                "line": 1,
-            })
+            outputs.append(
+                {
+                    "kind": "diagnostic",
+                    "path": path,
+                    "severity": "warning",
+                    "code": "SYMBOLS_EXTRACT_ERROR",
+                    "message": f"Failed to extract symbols: {e}",
+                    "line": 1,
+                }
+            )
 
     return outputs

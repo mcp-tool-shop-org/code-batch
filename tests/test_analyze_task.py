@@ -129,7 +129,9 @@ class TestAnalyzeExecutor:
             all_loc_metrics.extend([o for o in outputs if o.get("metric") == "loc"])
 
         # Should have at least some LOC metrics across all shards
-        assert len(all_loc_metrics) > 0, "No LOC metrics for text files across all shards"
+        assert len(all_loc_metrics) > 0, (
+            "No LOC metrics for text files across all shards"
+        )
         for m in all_loc_metrics:
             assert isinstance(m["value"], int)
             assert m["value"] >= 0
@@ -164,7 +166,9 @@ class TestAnalyzeExecutor:
         batch_manager = BatchManager(clean_store)
 
         # Run 1
-        batch_id_1 = batch_manager.init_batch(snapshot_id, "analyze", batch_id="batch-run1")
+        batch_id_1 = batch_manager.init_batch(
+            snapshot_id, "analyze", batch_id="batch-run1"
+        )
         runner1 = ShardRunner(clean_store)
         records = snapshot_builder.load_file_index(snapshot_id)
         shard_id = object_shard_prefix(records[0]["object"])
@@ -174,7 +178,9 @@ class TestAnalyzeExecutor:
         outputs_1 = runner1.get_shard_outputs(batch_id_1, "02_analyze", shard_id)
 
         # Run 2
-        batch_id_2 = batch_manager.init_batch(snapshot_id, "analyze", batch_id="batch-run2")
+        batch_id_2 = batch_manager.init_batch(
+            snapshot_id, "analyze", batch_id="batch-run2"
+        )
         runner2 = ShardRunner(clean_store)
 
         runner2.run_shard(batch_id_2, "01_parse", shard_id, parse_executor)
@@ -183,10 +189,9 @@ class TestAnalyzeExecutor:
 
         # Compare (ignore timestamps and batch-specific fields)
         def normalize(outputs):
-            return sorted([
-                (o["kind"], o["path"], o["metric"], o["value"])
-                for o in outputs
-            ])
+            return sorted(
+                [(o["kind"], o["path"], o["metric"], o["value"]) for o in outputs]
+            )
 
         assert normalize(outputs_1) == normalize(outputs_2)
 
@@ -225,5 +230,9 @@ class TestAnalyzeIntegration:
             by_metric.setdefault(metric, []).append(o)
 
         # Should have bytes, loc, lang
-        assert "bytes" in by_metric, f"Missing bytes metrics. Got: {list(by_metric.keys())}"
-        assert "lang" in by_metric, f"Missing lang metrics. Got: {list(by_metric.keys())}"
+        assert "bytes" in by_metric, (
+            f"Missing bytes metrics. Got: {list(by_metric.keys())}"
+        )
+        assert "lang" in by_metric, (
+            f"Missing lang metrics. Got: {list(by_metric.keys())}"
+        )
