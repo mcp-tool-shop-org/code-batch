@@ -29,7 +29,12 @@ from codebatch.ui import (
 
 SAMPLE_ROWS = [
     {"path": "src/main.py", "kind": "diagnostic", "code": "E001", "severity": "error"},
-    {"path": "src/util.py", "kind": "diagnostic", "code": "W002", "severity": "warning"},
+    {
+        "path": "src/util.py",
+        "kind": "diagnostic",
+        "code": "W002",
+        "severity": "warning",
+    },
     {"path": "src/main.py", "kind": "diagnostic", "code": "E003", "severity": "error"},
     {"path": "tests/test.py", "kind": "diagnostic", "code": "I001", "severity": "info"},
 ]
@@ -156,7 +161,9 @@ class TestRenderTable:
             page_size=2,
             page=0,
         )
-        lines = [l for l in output.split("\n") if l and "---" not in l and "PATH" not in l]
+        lines = [
+            line for line in output.split("\n") if line and "---" not in line and "PATH" not in line
+        ]
         assert len(lines) == 2
 
     def test_max_rows(self):
@@ -168,7 +175,9 @@ class TestRenderTable:
             color_mode=ColorMode.NEVER,
             max_rows=2,
         )
-        lines = [l for l in output.split("\n") if l and "---" not in l and "PATH" not in l]
+        lines = [
+            line for line in output.split("\n") if line and "---" not in line and "PATH" not in line
+        ]
         assert len(lines) == 2
 
     def test_no_header(self):
@@ -241,11 +250,7 @@ class TestRenderJson:
     def test_nested_objects(self):
         """Should handle nested objects."""
         nested = {
-            "outer": {
-                "inner": {
-                    "value": 42
-                }
-            },
+            "outer": {"inner": {"value": 42}},
             "array": [1, 2, 3],
         }
         output = render_json(nested)

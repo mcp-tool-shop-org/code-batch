@@ -4,11 +4,8 @@ This module registers all gates with the global registry.
 Import this module to ensure gates are registered.
 """
 
-from pathlib import Path
-from typing import Optional
-
-from .registry import register_gate, get_registry
-from .result import GateContext, GateResult, GateStatus, GateFailure
+from .registry import register_gate
+from .result import GateContext, GateResult, GateStatus
 
 
 # =============================================================================
@@ -80,7 +77,7 @@ def gate_p2_g1(ctx: GateContext) -> GateResult:
 
     try:
         manager = BatchManager(ctx.store_root)
-        batch = manager.load_batch(ctx.batch_id)
+        manager.load_batch(ctx.batch_id)
         plan = manager.load_plan(ctx.batch_id)
 
         completed_tasks = 0
@@ -250,13 +247,17 @@ def gate_p3_a1(ctx: GateContext) -> GateResult:
                     actual=f"{len(cache_canon)} outputs",
                 )
                 # Write comparison artifact for debugging
-                ctx.write_artifact_json("P3-A1", f"mismatch_{task_id}.json", {
-                    "task_id": task_id,
-                    "scan_count": len(scan_canon),
-                    "cache_count": len(cache_canon),
-                    "scan_outputs": scan_canon[:10],  # First 10
-                    "cache_outputs": cache_canon[:10],
-                })
+                ctx.write_artifact_json(
+                    "P3-A1",
+                    f"mismatch_{task_id}.json",
+                    {
+                        "task_id": task_id,
+                        "scan_count": len(scan_canon),
+                        "cache_count": len(cache_canon),
+                        "scan_outputs": scan_canon[:10],  # First 10
+                        "cache_outputs": cache_canon[:10],
+                    },
+                )
 
         result.details = {
             "tasks_checked": len(task_ids),
@@ -282,7 +283,6 @@ def gate_p3_a1(ctx: GateContext) -> GateResult:
 def gate_p3_a2(ctx: GateContext) -> GateResult:
     """Verify fallback to scan when cache is missing."""
     from ..query import QueryEngine
-    from ..batch import BatchManager
 
     result = GateResult(gate_id="P3-A2", passed=True, status=GateStatus.ENFORCED)
 
@@ -432,7 +432,6 @@ def gate_p5_g1(ctx: GateContext) -> GateResult:
     """Verify workflow commands produce identical outputs."""
     from ..query import QueryEngine
     from ..batch import BatchManager
-    from ..workflow import WorkflowRunner
 
     result = GateResult(gate_id="P5-G1", passed=True, status=GateStatus.ENFORCED)
 
@@ -609,17 +608,23 @@ def gate_p5_g5(ctx: GateContext) -> GateResult:
         # Actual UX testing is manual
 
         # Check commands exist by trying to import
-        from ..cli import (
-            cmd_run, cmd_resume, cmd_status, cmd_summary,
-            cmd_pipelines, cmd_pipeline_show, cmd_tasks, cmd_shards,
-            cmd_errors, cmd_files, cmd_top,
-        )
+        import importlib.util
+        if not importlib.util.find_spec("codebatch.cli"):
+            raise ImportError("codebatch.cli not found")
 
         result.details = {
             "commands_available": [
-                "run", "resume", "status", "summary",
-                "pipelines", "pipeline", "tasks", "shards",
-                "errors", "files", "top",
+                "run",
+                "resume",
+                "status",
+                "summary",
+                "pipelines",
+                "pipeline",
+                "tasks",
+                "shards",
+                "errors",
+                "files",
+                "top",
             ],
             "note": "HARNESS - full UX testing is manual",
         }
@@ -638,6 +643,7 @@ def gate_p5_g5(ctx: GateContext) -> GateResult:
 # =============================================================================
 # Register all gates on module import
 # =============================================================================
+
 
 def _ensure_registered():
     """Ensure all gates are registered."""

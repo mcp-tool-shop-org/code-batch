@@ -10,15 +10,13 @@ These tests enforce the Phase 7 gates:
 
 import json
 import os
-import subprocess
-import sys
-import tempfile
 from pathlib import Path
 
 import pytest
 
 try:
     import jsonschema
+
     HAS_JSONSCHEMA = True
 except ImportError:
     HAS_JSONSCHEMA = False
@@ -99,11 +97,8 @@ class TestGateP7ApiDyn:
         """Feature flag for phase5_workflow should be accurate."""
         info = get_api_info()
 
-        try:
-            from codebatch import workflow
-            expected = True
-        except ImportError:
-            expected = False
+        import importlib.util
+        expected = importlib.util.find_spec("codebatch.workflow") is not None
 
         assert info["build"]["features"]["phase5_workflow"] == expected
 
@@ -111,11 +106,8 @@ class TestGateP7ApiDyn:
         """Feature flag for phase6_ui should be accurate."""
         info = get_api_info()
 
-        try:
-            from codebatch import ui
-            expected = True
-        except ImportError:
-            expected = False
+        import importlib.util
+        expected = importlib.util.find_spec("codebatch.ui") is not None
 
         assert info["build"]["features"]["phase6_ui"] == expected
 
@@ -123,11 +115,8 @@ class TestGateP7ApiDyn:
         """Feature flag for diff should be accurate."""
         info = get_api_info()
 
-        try:
-            from codebatch.ui import diff
-            expected = True
-        except ImportError:
-            expected = False
+        import importlib.util
+        expected = importlib.util.find_spec("codebatch.ui.diff") is not None
 
         assert info["build"]["features"]["diff"] == expected
 
@@ -304,7 +293,9 @@ class TestGateP7Schema:
 
         for cmd in info["commands"]:
             for field in required_cmd_fields:
-                assert field in cmd, f"Command {cmd.get('name', '?')} missing field: {field}"
+                assert field in cmd, (
+                    f"Command {cmd.get('name', '?')} missing field: {field}"
+                )
 
     def test_task_has_required_fields(self, capsys):
         """Each task should have required fields."""
@@ -317,7 +308,9 @@ class TestGateP7Schema:
 
         for task in info["tasks"]:
             for field in required_task_fields:
-                assert field in task, f"Task {task.get('task_id', '?')} missing field: {field}"
+                assert field in task, (
+                    f"Task {task.get('task_id', '?')} missing field: {field}"
+                )
 
     def test_output_kind_has_required_fields(self, capsys):
         """Each output kind should have required fields."""
@@ -330,7 +323,9 @@ class TestGateP7Schema:
 
         for ok in info["output_kinds"]:
             for field in required_ok_fields:
-                assert field in ok, f"Output kind {ok.get('kind', '?')} missing field: {field}"
+                assert field in ok, (
+                    f"Output kind {ok.get('kind', '?')} missing field: {field}"
+                )
 
 
 # --- Additional Integration Tests ---
@@ -389,7 +384,9 @@ class TestApiIntegration:
         # Command names should be lowercase, dot-delimited
         pattern = r"^[a-z][a-z0-9]*([.][a-z][a-z0-9]*)*$"
         for cmd in info["commands"]:
-            assert re.match(pattern, cmd["name"]), f"Invalid command name: {cmd['name']}"
+            assert re.match(pattern, cmd["name"]), (
+                f"Invalid command name: {cmd['name']}"
+            )
 
     def test_canonical_keys_are_non_empty(self, capsys):
         """Canonical keys should not be empty."""

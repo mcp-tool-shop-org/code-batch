@@ -33,7 +33,8 @@ _ts_tsx_language = None
 try:
     import tree_sitter_javascript as ts_js
     import tree_sitter_typescript as ts_ts
-    from tree_sitter import Language, Parser
+    from tree_sitter import Language
+
     _TREE_SITTER_AVAILABLE = True
     _ts_js_language = Language(ts_js.language())
     _ts_ts_language = Language(ts_ts.language_typescript())
@@ -103,8 +104,7 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
             result["args"] = _convert_arguments(node.args, depth + 1, max_depth)
         if hasattr(node, "decorator_list") and node.decorator_list:
             result["decorators"] = [
-                _ast_node_to_dict(d, depth + 1, max_depth)
-                for d in node.decorator_list
+                _ast_node_to_dict(d, depth + 1, max_depth) for d in node.decorator_list
             ]
         if hasattr(node, "returns") and node.returns:
             result["returns"] = _ast_node_to_dict(node.returns, depth + 1, max_depth)
@@ -113,25 +113,21 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
     if node_type == "ClassDef":
         if hasattr(node, "bases") and node.bases:
             result["bases"] = [
-                _ast_node_to_dict(b, depth + 1, max_depth)
-                for b in node.bases
+                _ast_node_to_dict(b, depth + 1, max_depth) for b in node.bases
             ]
         if hasattr(node, "decorator_list") and node.decorator_list:
             result["decorators"] = [
-                _ast_node_to_dict(d, depth + 1, max_depth)
-                for d in node.decorator_list
+                _ast_node_to_dict(d, depth + 1, max_depth) for d in node.decorator_list
             ]
 
     # Import handling
     if node_type == "Import":
         result["names"] = [
-            {"name": alias.name, "asname": alias.asname}
-            for alias in node.names
+            {"name": alias.name, "asname": alias.asname} for alias in node.names
         ]
     if node_type == "ImportFrom":
         result["names"] = [
-            {"name": alias.name, "asname": alias.asname}
-            for alias in node.names
+            {"name": alias.name, "asname": alias.asname} for alias in node.names
         ]
         result["level"] = node.level
 
@@ -139,13 +135,14 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
     if node_type in ("Assign", "AnnAssign", "AugAssign"):
         if hasattr(node, "targets"):
             result["targets"] = [
-                _ast_node_to_dict(t, depth + 1, max_depth)
-                for t in node.targets
+                _ast_node_to_dict(t, depth + 1, max_depth) for t in node.targets
             ]
         if hasattr(node, "target"):
             result["target"] = _ast_node_to_dict(node.target, depth + 1, max_depth)
         if hasattr(node, "annotation") and node.annotation:
-            result["annotation"] = _ast_node_to_dict(node.annotation, depth + 1, max_depth)
+            result["annotation"] = _ast_node_to_dict(
+                node.annotation, depth + 1, max_depth
+            )
 
     # Literals
     if node_type == "Constant":
@@ -168,12 +165,14 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
             result["func"] = _ast_node_to_dict(node.func, depth + 1, max_depth)
         if hasattr(node, "args") and node.args:
             result["args"] = [
-                _ast_node_to_dict(a, depth + 1, max_depth)
-                for a in node.args
+                _ast_node_to_dict(a, depth + 1, max_depth) for a in node.args
             ]
         if hasattr(node, "keywords") and node.keywords:
             result["keywords"] = [
-                {"arg": kw.arg, "value": _ast_node_to_dict(kw.value, depth + 1, max_depth)}
+                {
+                    "arg": kw.arg,
+                    "value": _ast_node_to_dict(kw.value, depth + 1, max_depth),
+                }
                 for kw in node.keywords
             ]
 
@@ -196,13 +195,11 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
             result["right"] = _ast_node_to_dict(node.right, depth + 1, max_depth)
         if hasattr(node, "comparators") and node.comparators:
             result["comparators"] = [
-                _ast_node_to_dict(c, depth + 1, max_depth)
-                for c in node.comparators
+                _ast_node_to_dict(c, depth + 1, max_depth) for c in node.comparators
             ]
         if hasattr(node, "values") and node.values:
             result["values"] = [
-                _ast_node_to_dict(v, depth + 1, max_depth)
-                for v in node.values
+                _ast_node_to_dict(v, depth + 1, max_depth) for v in node.values
             ]
 
     # Unary operations
@@ -213,8 +210,7 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
     if node_type == "BoolOp":
         if hasattr(node, "values") and node.values:
             result["values"] = [
-                _ast_node_to_dict(v, depth + 1, max_depth)
-                for v in node.values
+                _ast_node_to_dict(v, depth + 1, max_depth) for v in node.values
             ]
         # Also capture the operator type
         if hasattr(node, "op"):
@@ -229,8 +225,7 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
     if node_type in ("List", "Tuple", "Set"):
         if hasattr(node, "elts") and node.elts:
             result["elts"] = [
-                _ast_node_to_dict(e, depth + 1, max_depth)
-                for e in node.elts
+                _ast_node_to_dict(e, depth + 1, max_depth) for e in node.elts
             ]
 
     # Dict literals
@@ -242,8 +237,7 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
             ]
         if hasattr(node, "values") and node.values:
             result["values"] = [
-                _ast_node_to_dict(v, depth + 1, max_depth)
-                for v in node.values
+                _ast_node_to_dict(v, depth + 1, max_depth) for v in node.values
             ]
 
     # If/While/For test condition
@@ -277,8 +271,7 @@ def _ast_node_to_dict(node: ast.AST, depth: int = 0, max_depth: int = 50) -> dic
     # handlers for try/except
     if hasattr(node, "handlers") and node.handlers:
         result["handlers"] = [
-            _ast_node_to_dict(h, depth + 1, max_depth)
-            for h in node.handlers
+            _ast_node_to_dict(h, depth + 1, max_depth) for h in node.handlers
         ]
 
     # ExceptHandler specifics
@@ -304,19 +297,34 @@ def _convert_arguments(args: ast.arguments, depth: int, max_depth: int) -> dict:
 
     if args.args:
         result["args"] = [
-            {"arg": a.arg, "annotation": _ast_node_to_dict(a.annotation, depth, max_depth) if a.annotation else None}
+            {
+                "arg": a.arg,
+                "annotation": _ast_node_to_dict(a.annotation, depth, max_depth)
+                if a.annotation
+                else None,
+            }
             for a in args.args
         ]
 
     if args.posonlyargs:
         result["posonlyargs"] = [
-            {"arg": a.arg, "annotation": _ast_node_to_dict(a.annotation, depth, max_depth) if a.annotation else None}
+            {
+                "arg": a.arg,
+                "annotation": _ast_node_to_dict(a.annotation, depth, max_depth)
+                if a.annotation
+                else None,
+            }
             for a in args.posonlyargs
         ]
 
     if args.kwonlyargs:
         result["kwonlyargs"] = [
-            {"arg": a.arg, "annotation": _ast_node_to_dict(a.annotation, depth, max_depth) if a.annotation else None}
+            {
+                "arg": a.arg,
+                "annotation": _ast_node_to_dict(a.annotation, depth, max_depth)
+                if a.annotation
+                else None,
+            }
             for a in args.kwonlyargs
         ]
 
@@ -353,10 +361,7 @@ def parse_python(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
         ast_dict = {
             "type": "Module",
             "ast_mode": "full",  # Phase 8: full fidelity mode
-            "body": [
-                _ast_node_to_dict(node)
-                for node in tree.body
-            ],
+            "body": [_ast_node_to_dict(node) for node in tree.body],
             "stats": {
                 "total_nodes": len(list(ast.walk(tree))),
             },
@@ -364,17 +369,21 @@ def parse_python(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
         return ast_dict, diagnostics
 
     except SyntaxError as e:
-        diagnostics.append({
-            "severity": "error",
-            "code": "E0001",
-            "message": str(e.msg) if e.msg else "Syntax error",
-            "line": e.lineno or 1,
-            "column": e.offset or 1,
-        })
+        diagnostics.append(
+            {
+                "severity": "error",
+                "code": "E0001",
+                "message": str(e.msg) if e.msg else "Syntax error",
+                "line": e.lineno or 1,
+                "column": e.offset or 1,
+            }
+        )
         return None, diagnostics
 
 
-def _ts_node_to_dict(node, source_bytes: bytes, depth: int = 0, max_depth: int = 50) -> dict:
+def _ts_node_to_dict(
+    node, source_bytes: bytes, depth: int = 0, max_depth: int = 50
+) -> dict:
     """Convert a tree-sitter node to dictionary with full fidelity.
 
     Args:
@@ -398,49 +407,74 @@ def _ts_node_to_dict(node, source_bytes: bytes, depth: int = 0, max_depth: int =
     # Extract name for named constructs
     # Common patterns: function name is identifier child, class name is identifier child
     if node.type in (
-        "function_declaration", "method_definition", "class_declaration",
-        "variable_declarator", "lexical_declaration", "function_expression",
-        "arrow_function", "export_statement", "import_statement",
+        "function_declaration",
+        "method_definition",
+        "class_declaration",
+        "variable_declarator",
+        "lexical_declaration",
+        "function_expression",
+        "arrow_function",
+        "export_statement",
+        "import_statement",
     ):
         # Look for identifier or property_identifier children
         for child in node.children:
             if child.type == "identifier":
-                result["name"] = source_bytes[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+                result["name"] = source_bytes[child.start_byte : child.end_byte].decode(
+                    "utf-8", errors="replace"
+                )
                 break
             if child.type == "property_identifier":
-                result["name"] = source_bytes[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+                result["name"] = source_bytes[child.start_byte : child.end_byte].decode(
+                    "utf-8", errors="replace"
+                )
                 break
 
     # For identifiers, capture the actual name
     if node.type in ("identifier", "property_identifier", "type_identifier"):
-        result["name"] = source_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+        result["name"] = source_bytes[node.start_byte : node.end_byte].decode(
+            "utf-8", errors="replace"
+        )
 
     # For import/export, capture source
     if node.type == "import_statement":
         for child in node.children:
             if child.type == "string":
-                text = source_bytes[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+                text = source_bytes[child.start_byte : child.end_byte].decode(
+                    "utf-8", errors="replace"
+                )
                 result["source"] = text.strip("'\"")
                 break
 
     # For string/number literals, capture value
     if node.type in ("string", "number", "template_string"):
-        result["value"] = source_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+        result["value"] = source_bytes[node.start_byte : node.end_byte].decode(
+            "utf-8", errors="replace"
+        )
 
     # Recurse into children for structural nodes
-    if node.child_count > 0 and node.type not in ("comment", "string", "number", "template_string"):
+    if node.child_count > 0 and node.type not in (
+        "comment",
+        "string",
+        "number",
+        "template_string",
+    ):
         children = []
         for child in node.children:
             # Skip comments for cleaner AST
-            if child.type not in ("comment", ):
-                children.append(_ts_node_to_dict(child, source_bytes, depth + 1, max_depth))
+            if child.type not in ("comment",):
+                children.append(
+                    _ts_node_to_dict(child, source_bytes, depth + 1, max_depth)
+                )
         if children:
             result["children"] = children
 
     return result
 
 
-def parse_javascript_treesitter(content: str, path: str, is_typescript: bool = False) -> tuple[Optional[dict], list[dict]]:
+def parse_javascript_treesitter(
+    content: str, path: str, is_typescript: bool = False
+) -> tuple[Optional[dict], list[dict]]:
     """Parse JavaScript/TypeScript using tree-sitter.
 
     Args:
@@ -464,6 +498,7 @@ def parse_javascript_treesitter(content: str, path: str, is_typescript: bool = F
         language = _ts_js_language
 
     from tree_sitter import Parser
+
     parser = Parser(language)
     tree = parser.parse(source_bytes)
 
@@ -473,16 +508,19 @@ def parse_javascript_treesitter(content: str, path: str, is_typescript: bool = F
         def find_errors(node):
             errors = []
             if node.type == "ERROR" or node.is_missing:
-                errors.append({
-                    "severity": "error",
-                    "code": "E0002",
-                    "message": f"Parse error at {node.type}",
-                    "line": node.start_point[0] + 1,
-                    "column": node.start_point[1] + 1,
-                })
+                errors.append(
+                    {
+                        "severity": "error",
+                        "code": "E0002",
+                        "message": f"Parse error at {node.type}",
+                        "line": node.start_point[0] + 1,
+                        "column": node.start_point[1] + 1,
+                    }
+                )
             for child in node.children:
                 errors.extend(find_errors(child))
             return errors
+
         diagnostics.extend(find_errors(tree.root_node))
 
     # Convert to dict
@@ -504,7 +542,9 @@ def _count_ts_nodes(node) -> int:
     return count
 
 
-def parse_javascript_fallback(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
+def parse_javascript_fallback(
+    content: str, path: str
+) -> tuple[Optional[dict], list[dict]]:
     """Fallback JavaScript/TypeScript tokenization when tree-sitter unavailable.
 
     This is a basic tokenizer, not a full parser.
@@ -520,11 +560,11 @@ def parse_javascript_fallback(content: str, path: str) -> tuple[Optional[dict], 
 
     # Simple token patterns
     patterns = {
-        "keyword": r'\b(function|const|let|var|if|else|for|while|return|class|import|export|async|await)\b',
+        "keyword": r"\b(function|const|let|var|if|else|for|while|return|class|import|export|async|await)\b",
         "string": r'(["\'])(?:(?!\1)[^\\]|\\.)*\1',
-        "number": r'\b\d+(?:\.\d+)?\b',
-        "comment": r'//.*|/\*[\s\S]*?\*/',
-        "identifier": r'\b[a-zA-Z_$][a-zA-Z0-9_$]*\b',
+        "number": r"\b\d+(?:\.\d+)?\b",
+        "comment": r"//.*|/\*[\s\S]*?\*/",
+        "identifier": r"\b[a-zA-Z_$][a-zA-Z0-9_$]*\b",
     }
 
     token_counts = {}
@@ -538,16 +578,18 @@ def parse_javascript_fallback(content: str, path: str) -> tuple[Optional[dict], 
 
     # Check for common issues
     # Unbalanced braces
-    open_braces = content.count('{')
-    close_braces = content.count('}')
+    open_braces = content.count("{")
+    close_braces = content.count("}")
     if open_braces != close_braces:
-        diagnostics.append({
-            "severity": "warning",
-            "code": "W0001",
-            "message": f"Unbalanced braces: {open_braces} open, {close_braces} close",
-            "line": 1,
-            "column": 1,
-        })
+        diagnostics.append(
+            {
+                "severity": "warning",
+                "code": "W0001",
+                "message": f"Unbalanced braces: {open_braces} open, {close_braces} close",
+                "line": 1,
+                "column": 1,
+            }
+        )
 
     ast_dict = {
         "type": "TokenInfo",
@@ -555,7 +597,7 @@ def parse_javascript_fallback(content: str, path: str) -> tuple[Optional[dict], 
         "parser": "regex-fallback",
         "tokens": token_counts,
         "stats": {
-            "lines": content.count('\n') + 1,
+            "lines": content.count("\n") + 1,
             "characters": len(content),
         },
     }
@@ -593,7 +635,7 @@ def parse_text(content: str, path: str) -> tuple[Optional[dict], list[dict]]:
     Returns:
         Tuple of (token info dict, empty diagnostics).
     """
-    lines = content.split('\n')
+    lines = content.split("\n")
     words = content.split()
 
     ast_dict = {
@@ -633,13 +675,15 @@ def create_chunk_manifest(
     total_bytes = len(data)
 
     for i in range(0, total_bytes, chunk_size):
-        chunk_data = data[i:i + chunk_size]
+        chunk_data = data[i : i + chunk_size]
         chunk_ref = runner.object_store.put_bytes(chunk_data)
-        chunks.append({
-            "object": chunk_ref,
-            "size": len(chunk_data),
-            "index": len(chunks),
-        })
+        chunks.append(
+            {
+                "object": chunk_ref,
+                "size": len(chunk_data),
+                "index": len(chunks),
+            }
+        )
 
     manifest = {
         "schema_name": "codebatch.chunk_manifest",
@@ -658,7 +702,9 @@ def create_chunk_manifest(
     return manifest_ref, manifest
 
 
-def parse_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -> list[dict]:
+def parse_executor(
+    config: dict, files: Iterable[dict], runner: ShardRunner
+) -> list[dict]:
     """Execute the parse task.
 
     Args:
@@ -714,46 +760,54 @@ def parse_executor(config: dict, files: Iterable[dict], runner: ShardRunner) -> 
                     manifest_ref, _ = create_chunk_manifest(
                         ast_bytes, "ast", "json", runner, chunk_threshold
                     )
-                    outputs.append({
-                        "path": path,
-                        "kind": "ast",  # Semantic kind stays ast
-                        "object": manifest_ref,
-                        "format": "json+chunks",  # Format indicates chunking
-                    })
+                    outputs.append(
+                        {
+                            "path": path,
+                            "kind": "ast",  # Semantic kind stays ast
+                            "object": manifest_ref,
+                            "format": "json+chunks",  # Format indicates chunking
+                        }
+                    )
                 else:
                     # Store directly
                     ast_ref = runner.object_store.put_bytes(ast_bytes)
-                    outputs.append({
-                        "path": path,
-                        "kind": "ast",
-                        "object": ast_ref,
-                        "format": "json",
-                    })
+                    outputs.append(
+                        {
+                            "path": path,
+                            "kind": "ast",
+                            "object": ast_ref,
+                            "format": "json",
+                        }
+                    )
 
             # Emit diagnostics
             if emit_diagnostics:
                 for diag in diagnostics:
-                    outputs.append({
-                        "path": path,
-                        "kind": "diagnostic",
-                        "severity": diag["severity"],
-                        "code": diag["code"],
-                        "message": diag["message"],
-                        "line": diag.get("line"),
-                        "column": diag.get("column"),
-                    })
+                    outputs.append(
+                        {
+                            "path": path,
+                            "kind": "diagnostic",
+                            "severity": diag["severity"],
+                            "code": diag["code"],
+                            "message": diag["message"],
+                            "line": diag.get("line"),
+                            "column": diag.get("column"),
+                        }
+                    )
 
         except Exception as e:
             # Emit error diagnostic
             if emit_diagnostics:
-                outputs.append({
-                    "path": path,
-                    "kind": "diagnostic",
-                    "severity": "error",
-                    "code": "E9999",
-                    "message": f"Parse error: {str(e)}",
-                    "line": 1,
-                    "column": 1,
-                })
+                outputs.append(
+                    {
+                        "path": path,
+                        "kind": "diagnostic",
+                        "severity": "error",
+                        "code": "E9999",
+                        "message": f"Parse error: {str(e)}",
+                        "line": 1,
+                        "column": 1,
+                    }
+                )
 
     return outputs
