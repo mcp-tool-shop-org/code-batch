@@ -12,25 +12,25 @@
   <a href="https://mcp-tool-shop-org.github.io/code-batch/"><img src="https://img.shields.io/badge/Landing_Page-live-blue" alt="Landing Page"></a>
 </p>
 
-Content-addressed batch execution engine with deterministic sharding and queryable outputs.
+基于内容寻址的批量执行引擎，具有确定性的分片和可查询的输出。
 
-**What it is:** A filesystem-based execution substrate that snapshots code, shards work deterministically, and indexes every output for structured queries — no database required.
+**是什么：** 这是一个基于文件系统的执行平台，它会快照代码，以确定性的方式进行分片，并索引所有输出，以便进行结构化查询——无需数据库。
 
-**Who it's for:** Developers building repeatable code analysis pipelines, CI integrations, or batch transformation workflows that need reproducibility and auditability.
+**适用于：** 正在构建可重复的代码分析流水线、CI 集成或需要可重复性和可审计性的批量转换工作流程的开发人员。
 
-**Why it's different:** Every input is content-addressed and every execution is deterministic. Re-run the same batch six months later and get identical results. Query outputs by semantic type without parsing logs.
+**与众不同之处：** 每一个输入都基于内容进行寻址，并且每一次执行都是确定性的。 即使在六个月后重新运行相同的批次，也能获得完全相同的结果。 可以通过语义类型查询输出，而无需解析日志。
 
-## Overview
+## 概述
 
-CodeBatch provides a filesystem-based execution substrate for running deterministic transformations over codebases. It captures inputs as immutable snapshots, executes work in isolated shards, and indexes all semantic outputs for efficient querying—without requiring a database.
+CodeBatch 提供了一个基于文件系统的执行平台，用于对代码库进行确定性的转换。 它将输入捕获为不可变的快照，在隔离的分片中执行任务，并索引所有语义输出，以便进行高效的查询——无需数据库。
 
-## Documentation
+## 文档
 
-- **[SPEC.md](./SPEC.md)** — Full storage and execution specification
-- **[docs/TASKS.md](./docs/TASKS.md)** — Task reference (parse, analyze, symbols, lint)
-- **[CHANGELOG.md](./CHANGELOG.md)** — Version history
+- **[SPEC.md](./SPEC.md)** — 完整的存储和执行规范
+- **[docs/TASKS.md](./docs/TASKS.md)** — 任务参考（解析、分析、符号、代码检查）
+- **[CHANGELOG.md](./CHANGELOG.md)** — 版本历史
 
-## Quick Start
+## 快速开始
 
 ```bash
 # Initialize a store
@@ -55,9 +55,9 @@ codebatch status --batch <id> --store ./store
 codebatch summary --batch <id> --store ./store
 ```
 
-## Human Workflow (Phase 5)
+## 人工工作流程（第五阶段）
 
-Phase 5 adds human-friendly commands that compose existing primitives:
+第五阶段添加了对用户友好的命令，这些命令将现有功能组合在一起：
 
 ```bash
 # Run entire batch (no manual shard iteration needed)
@@ -73,7 +73,7 @@ codebatch status --batch <id> --store ./store
 codebatch summary --batch <id> --store ./store
 ```
 
-## Discoverability
+## 可发现性
 
 ```bash
 # List pipelines
@@ -89,7 +89,7 @@ codebatch tasks --batch <id> --store ./store
 codebatch shards --batch <id> --task 01_parse --store ./store
 ```
 
-## Query Aliases
+## 查询别名
 
 ```bash
 # Show errors
@@ -102,9 +102,9 @@ codebatch files --batch <id> --store ./store
 codebatch top --batch <id> --store ./store
 ```
 
-## Exploration & Comparison (Phase 6)
+## 探索与比较（第六阶段）
 
-Phase 6 adds read-only views for exploring outputs and comparing batches—without modifying the store.
+第六阶段添加了只读视图，用于探索输出并比较批次——而无需修改存储。
 
 ```bash
 # Inspect all outputs for a file
@@ -123,9 +123,9 @@ codebatch improvements <batchA> <batchB> --store ./store
 codebatch inspect src/main.py --batch <id> --store ./store --explain
 ```
 
-## Low-Level Commands
+## 底层命令
 
-For fine-grained control, the original commands remain available:
+为了实现精细的控制，原始命令仍然可用：
 
 ```bash
 # Run a specific shard
@@ -141,11 +141,11 @@ codebatch query diagnostics --batch <id> --task 01_parse --store ./store
 codebatch index-build --batch <id> --store ./store
 ```
 
-## Spec Versioning
+## 规范版本控制
 
-The specification uses semantic versioning with draft/stable markers. Each version is tagged in git (e.g., `spec-v1.0-draft`). Breaking changes increment the major version. Implementations should declare which spec version they target and tolerate unknown fields for forward compatibility.
+该规范使用语义版本控制，并带有草案/稳定标记。 每个版本都标记在 Git 中（例如，`spec-v1.0-draft`）。 破坏性更改会增加主版本号。 实现应声明其目标规范版本，并容忍未知字段以实现向前兼容性。
 
-## Project Structure
+## 项目结构
 
 ```
 schemas/      JSON Schema definitions for all record types
@@ -155,11 +155,11 @@ docs/         Documentation
 .github/      CI/CD workflows
 ```
 
-## Support
+## 支持
 
-- **Questions / help:** [Discussions](https://github.com/mcp-tool-shop-org/code-batch/discussions)
-- **Bug reports:** [Issues](https://github.com/mcp-tool-shop-org/code-batch/issues)
+- **问题/帮助：** [讨论](https://github.com/mcp-tool-shop-org/code-batch/discussions)
+- **错误报告：** [问题](https://github.com/mcp-tool-shop-org/code-batch/issues)
 
-## License
+## 许可证
 
 MIT

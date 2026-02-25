@@ -12,25 +12,25 @@
   <a href="https://mcp-tool-shop-org.github.io/code-batch/"><img src="https://img.shields.io/badge/Landing_Page-live-blue" alt="Landing Page"></a>
 </p>
 
-Content-addressed batch execution engine with deterministic sharding and queryable outputs.
+Motore di esecuzione batch orientato ai contenuti, con sharding deterministico e output interrogabili.
 
-**What it is:** A filesystem-based execution substrate that snapshots code, shards work deterministically, and indexes every output for structured queries — no database required.
+**Cos'è:** Un ambiente di esecuzione basato su filesystem che salva il codice, suddivide il lavoro in modo deterministico e indicizza tutti gli output per interrogazioni strutturate, senza la necessità di un database.
 
-**Who it's for:** Developers building repeatable code analysis pipelines, CI integrations, or batch transformation workflows that need reproducibility and auditability.
+**A chi è rivolto:** Sviluppatori che creano pipeline di analisi del codice ripetibili, integrazioni CI o flussi di lavoro di trasformazione batch che richiedono riproducibilità e auditabilità.
 
-**Why it's different:** Every input is content-addressed and every execution is deterministic. Re-run the same batch six months later and get identical results. Query outputs by semantic type without parsing logs.
+**Cosa lo rende diverso:** Ogni input è identificato dal suo contenuto e ogni esecuzione è deterministica. Riavviare la stessa elaborazione a distanza di sei mesi produrrà risultati identici. È possibile interrogare gli output in base al tipo semantico senza dover analizzare i log.
 
-## Overview
+## Panoramica
 
-CodeBatch provides a filesystem-based execution substrate for running deterministic transformations over codebases. It captures inputs as immutable snapshots, executes work in isolated shards, and indexes all semantic outputs for efficient querying—without requiring a database.
+CodeBatch fornisce un ambiente di esecuzione basato su filesystem per eseguire trasformazioni deterministiche su basi di codice. Cattura gli input come snapshot immutabili, esegue il lavoro in shard isolati e indicizza tutti gli output semantici per interrogazioni efficienti, senza richiedere un database.
 
-## Documentation
+## Documentazione
 
-- **[SPEC.md](./SPEC.md)** — Full storage and execution specification
-- **[docs/TASKS.md](./docs/TASKS.md)** — Task reference (parse, analyze, symbols, lint)
-- **[CHANGELOG.md](./CHANGELOG.md)** — Version history
+- **[SPEC.md](./SPEC.md)** — Specifiche complete di archiviazione ed esecuzione
+- **[docs/TASKS.md](./docs/TASKS.md)** — Riferimento alle attività (analisi, controllo, simboli, linting)
+- **[CHANGELOG.md](./CHANGELOG.md)** — Cronologia delle versioni
 
-## Quick Start
+## Guida Rapida
 
 ```bash
 # Initialize a store
@@ -55,9 +55,9 @@ codebatch status --batch <id> --store ./store
 codebatch summary --batch <id> --store ./store
 ```
 
-## Human Workflow (Phase 5)
+## Flusso di lavoro manuale (Fase 5)
 
-Phase 5 adds human-friendly commands that compose existing primitives:
+La Fase 5 aggiunge comandi intuitivi che combinano funzionalità esistenti:
 
 ```bash
 # Run entire batch (no manual shard iteration needed)
@@ -73,7 +73,7 @@ codebatch status --batch <id> --store ./store
 codebatch summary --batch <id> --store ./store
 ```
 
-## Discoverability
+## Scoperta
 
 ```bash
 # List pipelines
@@ -89,7 +89,7 @@ codebatch tasks --batch <id> --store ./store
 codebatch shards --batch <id> --task 01_parse --store ./store
 ```
 
-## Query Aliases
+## Alias di interrogazione
 
 ```bash
 # Show errors
@@ -102,9 +102,9 @@ codebatch files --batch <id> --store ./store
 codebatch top --batch <id> --store ./store
 ```
 
-## Exploration & Comparison (Phase 6)
+## Esplorazione e confronto (Fase 6)
 
-Phase 6 adds read-only views for exploring outputs and comparing batches—without modifying the store.
+La Fase 6 aggiunge viste di sola lettura per esplorare gli output e confrontare le elaborazioni, senza modificare l'archivio.
 
 ```bash
 # Inspect all outputs for a file
@@ -123,9 +123,9 @@ codebatch improvements <batchA> <batchB> --store ./store
 codebatch inspect src/main.py --batch <id> --store ./store --explain
 ```
 
-## Low-Level Commands
+## Comandi di basso livello
 
-For fine-grained control, the original commands remain available:
+Per un controllo più preciso, i comandi originali rimangono disponibili:
 
 ```bash
 # Run a specific shard
@@ -141,11 +141,11 @@ codebatch query diagnostics --batch <id> --task 01_parse --store ./store
 codebatch index-build --batch <id> --store ./store
 ```
 
-## Spec Versioning
+## Versionamento delle specifiche
 
-The specification uses semantic versioning with draft/stable markers. Each version is tagged in git (e.g., `spec-v1.0-draft`). Breaking changes increment the major version. Implementations should declare which spec version they target and tolerate unknown fields for forward compatibility.
+Le specifiche utilizzano il versionamento semantico con indicatori "bozza/stabile". Ogni versione è contrassegnata in git (ad esempio, `spec-v1.0-draft`). Le modifiche incompatibili incrementano la versione principale. Le implementazioni devono dichiarare quale versione delle specifiche utilizzano e tollerare i campi sconosciuti per la compatibilità con le versioni future.
 
-## Project Structure
+## Struttura del progetto
 
 ```
 schemas/      JSON Schema definitions for all record types
@@ -155,11 +155,11 @@ docs/         Documentation
 .github/      CI/CD workflows
 ```
 
-## Support
+## Supporto
 
-- **Questions / help:** [Discussions](https://github.com/mcp-tool-shop-org/code-batch/discussions)
-- **Bug reports:** [Issues](https://github.com/mcp-tool-shop-org/code-batch/issues)
+- **Domande / aiuto:** [Discussioni](https://github.com/mcp-tool-shop-org/code-batch/discussions)
+- **Segnalazione di bug:** [Problemi](https://github.com/mcp-tool-shop-org/code-batch/issues)
 
-## License
+## Licenza
 
 MIT

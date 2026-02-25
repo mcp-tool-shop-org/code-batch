@@ -12,25 +12,25 @@
   <a href="https://mcp-tool-shop-org.github.io/code-batch/"><img src="https://img.shields.io/badge/Landing_Page-live-blue" alt="Landing Page"></a>
 </p>
 
-Content-addressed batch execution engine with deterministic sharding and queryable outputs.
+コンテンツベースのアドレス指定によるバッチ実行エンジン。決定論的なシャード化と、クエリ可能な出力が特徴です。
 
-**What it is:** A filesystem-based execution substrate that snapshots code, shards work deterministically, and indexes every output for structured queries — no database required.
+**概要:** コードをスナップショットとして保存し、作業を決定論的に分割し、すべての出力を構造化されたクエリのためにインデックス化する、ファイルシステムベースの実行基盤です。データベースは不要です。
 
-**Who it's for:** Developers building repeatable code analysis pipelines, CI integrations, or batch transformation workflows that need reproducibility and auditability.
+**対象ユーザー:** 繰り返し可能なコード分析パイプライン、CI統合、または再現性と監査可能性が必要なバッチ変換ワークフローを構築する開発者。
 
-**Why it's different:** Every input is content-addressed and every execution is deterministic. Re-run the same batch six months later and get identical results. Query outputs by semantic type without parsing logs.
+**特長:** すべての入力はコンテンツベースでアドレス指定され、すべての実行は決定論的です。同じバッチを6ヶ月後に再実行しても、同じ結果が得られます。ログを解析することなく、意味的なタイプで出力をクエリできます。
 
-## Overview
+## 概要
 
-CodeBatch provides a filesystem-based execution substrate for running deterministic transformations over codebases. It captures inputs as immutable snapshots, executes work in isolated shards, and indexes all semantic outputs for efficient querying—without requiring a database.
+CodeBatchは、コードベースに対して決定論的な変換を実行するためのファイルシステムベースの実行基盤を提供します。入力は不変のスナップショットとしてキャプチャされ、作業は隔離されたシャードで実行され、すべての意味的な出力が効率的なクエリのためにインデックス化されます。データベースは不要です。
 
-## Documentation
+## ドキュメント
 
-- **[SPEC.md](./SPEC.md)** — Full storage and execution specification
-- **[docs/TASKS.md](./docs/TASKS.md)** — Task reference (parse, analyze, symbols, lint)
-- **[CHANGELOG.md](./CHANGELOG.md)** — Version history
+- **[SPEC.md](./SPEC.md)** — ストレージおよび実行に関する詳細仕様
+- **[docs/TASKS.md](./docs/TASKS.md)** — タスクリファレンス（解析、分析、シンボル、Lint）
+- **[CHANGELOG.md](./CHANGELOG.md)** — バージョン履歴
 
-## Quick Start
+## クイックスタート
 
 ```bash
 # Initialize a store
@@ -55,9 +55,9 @@ codebatch status --batch <id> --store ./store
 codebatch summary --batch <id> --store ./store
 ```
 
-## Human Workflow (Phase 5)
+## ヒューマンワークフロー（フェーズ5）
 
-Phase 5 adds human-friendly commands that compose existing primitives:
+フェーズ5では、既存の基本的な機能を利用して、より使いやすいコマンドが追加されています。
 
 ```bash
 # Run entire batch (no manual shard iteration needed)
@@ -73,7 +73,7 @@ codebatch status --batch <id> --store ./store
 codebatch summary --batch <id> --store ./store
 ```
 
-## Discoverability
+## 発見可能性
 
 ```bash
 # List pipelines
@@ -89,7 +89,7 @@ codebatch tasks --batch <id> --store ./store
 codebatch shards --batch <id> --task 01_parse --store ./store
 ```
 
-## Query Aliases
+## クエリエイリアス
 
 ```bash
 # Show errors
@@ -102,9 +102,9 @@ codebatch files --batch <id> --store ./store
 codebatch top --batch <id> --store ./store
 ```
 
-## Exploration & Comparison (Phase 6)
+## 探索と比較（フェーズ6）
 
-Phase 6 adds read-only views for exploring outputs and comparing batches—without modifying the store.
+フェーズ6では、出力を探索し、バッチを比較するための読み取り専用ビューが追加されます。これにより、ストレージを変更することなく比較できます。
 
 ```bash
 # Inspect all outputs for a file
@@ -123,9 +123,9 @@ codebatch improvements <batchA> <batchB> --store ./store
 codebatch inspect src/main.py --batch <id> --store ./store --explain
 ```
 
-## Low-Level Commands
+## 低レベルコマンド
 
-For fine-grained control, the original commands remain available:
+より詳細な制御が必要な場合は、元のコマンドが引き続き利用可能です。
 
 ```bash
 # Run a specific shard
@@ -141,11 +141,11 @@ codebatch query diagnostics --batch <id> --task 01_parse --store ./store
 codebatch index-build --batch <id> --store ./store
 ```
 
-## Spec Versioning
+## 仕様のバージョン管理
 
-The specification uses semantic versioning with draft/stable markers. Each version is tagged in git (e.g., `spec-v1.0-draft`). Breaking changes increment the major version. Implementations should declare which spec version they target and tolerate unknown fields for forward compatibility.
+仕様は、ドラフト/安定版のマーカーを使用したセマンティックバージョニングを採用しています。各バージョンはGitでタグ付けされます（例：`spec-v1.0-draft`）。互換性を破る変更がある場合は、メジャーバージョンがインクリメントされます。実装では、どの仕様バージョンを対象としているかを宣言し、互換性のために未知のフィールドを許容する必要があります。
 
-## Project Structure
+## プロジェクト構造
 
 ```
 schemas/      JSON Schema definitions for all record types
@@ -155,11 +155,11 @@ docs/         Documentation
 .github/      CI/CD workflows
 ```
 
-## Support
+## サポート
 
-- **Questions / help:** [Discussions](https://github.com/mcp-tool-shop-org/code-batch/discussions)
-- **Bug reports:** [Issues](https://github.com/mcp-tool-shop-org/code-batch/issues)
+- **質問/ヘルプ:** [ディスカッション](https://github.com/mcp-tool-shop-org/code-batch/discussions)
+- **バグレポート:** [イシュー](https://github.com/mcp-tool-shop-org/code-batch/issues)
 
-## License
+## ライセンス
 
 MIT

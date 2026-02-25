@@ -47,3 +47,6 @@ Thumbs.db
 
 # CodeBatch stores (example stores, not the code)
 *.store/
+site/.astro/
+site/node_modules/
+site/dist/
