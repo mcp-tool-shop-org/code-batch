@@ -4,9 +4,18 @@ All notable changes to the CodeBatch specification and implementation.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-02-27
+
 ### Added
-- Initial repository structure
-- Core specification document
+- SECURITY.md with vulnerability reporting and data scope
+- SHIP_GATE.md quality gates (all hard gates pass)
+- SCORECARD.md with pre/post remediation scores
+- LICENSE file (MIT)
+- Security & Data Scope section in README
+
+### Changed
+- Promoted from v0.1.1 to v1.0.0 (stable release)
+- Development Status classifier updated to Production/Stable
 
 ---
 

@@ -160,6 +160,35 @@ docs/         Documentation
 - **Questions / help:** [Discussions](https://github.com/mcp-tool-shop-org/code-batch/discussions)
 - **Bug reports:** [Issues](https://github.com/mcp-tool-shop-org/code-batch/issues)
 
+## Security & Data Scope
+
+CodeBatch is a **local-first CLI tool** — no network requests, no telemetry, deterministic execution.
+
+- **Data accessed:** Reads source files for content-addressed snapshotting (SHA-256). Writes batch stores, shard outputs, and LMDB indexes to user-specified directories.
+- **Data NOT accessed:** No network requests. No telemetry. No cloud services. No credential storage.
+- **Permissions required:** File system read for source directories, write for store/output directories.
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+
+---
+
+## Scorecard
+
+| Category | Score |
+|----------|-------|
+| Security | 10/10 |
+| Error Handling | 10/10 |
+| Operator Docs | 10/10 |
+| Shipping Hygiene | 10/10 |
+| Identity | 10/10 |
+| **Overall** | **50/50** |
+
+---
+
 ## License
 
 MIT
+
+---
+
+Built by <a href="https://mcp-tool-shop.github.io/">MCP Tool Shop</a>
