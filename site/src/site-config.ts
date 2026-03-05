@@ -17,7 +17,7 @@ export const config: SiteConfig = {
     description:
       "CodeBatch snapshots your code, shards work deterministically across pipelines, and indexes every output for structured queries — all on the filesystem. Re-run the same batch six months later and get identical results.",
     primaryCta: { href: "#get-started", label: "Get started" },
-    secondaryCta: { href: "#how-it-works", label: "How it works" },
+    secondaryCta: { href: "handbook/", label: "Read the Handbook" },
     previews: [
       {
         label: "Quick start",

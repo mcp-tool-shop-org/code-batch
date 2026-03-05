@@ -1,0 +1,845 @@
+{
+  "version": 1,
+  "entries": {
+    "27d7c156d25f9df2": {
+      "translation": "コンテンツベースのアドレス指定によるバッチ実行エンジン。決定論的なシャード化と、クエリ可能な出力が特徴です。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "bf4fcefd4d715375": {
+      "translation": "**概要:** コードをスナップショットとして保存し、作業を決定論的に分割し、すべての出力を構造化されたクエリのためにインデックス化する、ファイルシステムベースの実行基盤です。データベースは不要です。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "595705e1b54ef533": {
+      "translation": "**対象ユーザー:** 繰り返し可能なコード分析パイプライン、CI統合、または再現性と監査可能性が必要なバッチ変換ワークフローを構築する開発者。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "70423a17d6aec592": {
+      "translation": "**特長:** すべての入力はコンテンツベースでアドレス指定され、すべての実行は決定論的です。同じバッチを6ヶ月後に再実行しても、同じ結果が得られます。ログを解析することなく、意味的なタイプで出力をクエリできます。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "55ea89e43caf5c58": {
+      "translation": "概要",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "a8debc3942957dfa": {
+      "translation": "CodeBatchは、コードベースに対して決定論的な変換を実行するためのファイルシステムベースの実行基盤を提供します。入力は不変のスナップショットとしてキャプチャされ、作業は隔離されたシャードで実行され、すべての意味的な出力が効率的なクエリのためにインデックス化されます。データベースは不要です。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "80f80f9b2d0ddf56": {
+      "translation": "ドキュメント",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "4a88af4387339451": {
+      "translation": "- **[SPEC.md](./SPEC.md)** — ストレージおよび実行に関する詳細仕様\n- **[docs/TASKS.md](./docs/TASKS.md)** — タスクリファレンス（解析、分析、シンボル、Lint）\n- **[CHANGELOG.md](./CHANGELOG.md)** — バージョン履歴",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "d182d24c54cc50a7": {
+      "translation": "クイックスタート",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "27375c8590e68583": {
+      "translation": "ヒューマンワークフロー（フェーズ5）",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "02113ea781436eed": {
+      "translation": "フェーズ5では、既存の基本的な機能を利用して、より使いやすいコマンドが追加されています。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "9114bfb8ac458192": {
+      "translation": "発見可能性",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "dfd86e0fad19c985": {
+      "translation": "クエリエイリアス",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "52573e54dbcdd435": {
+      "translation": "探索と比較（フェーズ6）",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "4ccd2be2c12b10d2": {
+      "translation": "フェーズ6では、出力を探索し、バッチを比較するための読み取り専用ビューが追加されます。これにより、ストレージを変更することなく比較できます。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "7cc9df18764a7597": {
+      "translation": "低レベルコマンド",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "ebcc9f2c328a8040": {
+      "translation": "より詳細な制御が必要な場合は、元のコマンドが引き続き利用可能です。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "7c92b6429661601f": {
+      "translation": "仕様のバージョン管理",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "2f8548cc9b1cd39d": {
+      "translation": "仕様は、ドラフト/安定版のマーカーを使用したセマンティックバージョニングを採用しています。各バージョンはGitでタグ付けされます（例：`spec-v1.0-draft`）。互換性を破る変更がある場合は、メジャーバージョンがインクリメントされます。実装では、どの仕様バージョンを対象としているかを宣言し、互換性のために未知のフィールドを許容する必要があります。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "1d417df09230eb05": {
+      "translation": "プロジェクト構造",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "99770c4a1b6a8595": {
+      "translation": "サポート",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "1b0c931dff9afdf5": {
+      "translation": "- **質問/ヘルプ:** [ディスカッション](https://github.com/mcp-tool-shop-org/code-batch/discussions)\n- **バグレポート:** [イシュー](https://github.com/mcp-tool-shop-org/code-batch/issues)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "08ea9dfbe36d981b": {
+      "translation": "ライセンス",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "f044c126a8902f11": {
+      "translation": "MIT",
+      "model": "translategemma:12b",
+      "timestamp": 1772035761705
+    },
+    "0e768e5a74777d02": {
+      "translation": "基于内容寻址的批量执行引擎，具有确定性的分片和可查询的输出。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "e9611f3ee79121bd": {
+      "translation": "**是什么：** 这是一个基于文件系统的执行平台，它会快照代码，以确定性的方式进行分片，并索引所有输出，以便进行结构化查询——无需数据库。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "ad16230963192b6b": {
+      "translation": "**适用于：** 正在构建可重复的代码分析流水线、CI 集成或需要可重复性和可审计性的批量转换工作流程的开发人员。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "7fbd6e5438c185ce": {
+      "translation": "**与众不同之处：** 每一个输入都基于内容进行寻址，并且每一次执行都是确定性的。 即使在六个月后重新运行相同的批次，也能获得完全相同的结果。 可以通过语义类型查询输出，而无需解析日志。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "447cdcd17bd61cb7": {
+      "translation": "概述",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "136fc72313ab4f1d": {
+      "translation": "CodeBatch 提供了一个基于文件系统的执行平台，用于对代码库进行确定性的转换。 它将输入捕获为不可变的快照，在隔离的分片中执行任务，并索引所有语义输出，以便进行高效的查询——无需数据库。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "250492556e6757d7": {
+      "translation": "文档",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "4b10cf2f39a2605f": {
+      "translation": "- **[SPEC.md](./SPEC.md)** — 完整的存储和执行规范\n- **[docs/TASKS.md](./docs/TASKS.md)** — 任务参考（解析、分析、符号、代码检查）\n- **[CHANGELOG.md](./CHANGELOG.md)** — 版本历史",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "3e6394397900eaa1": {
+      "translation": "快速开始",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "a2cc5d7bb192de36": {
+      "translation": "人工工作流程（第五阶段）",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "629e8f76d4193c01": {
+      "translation": "第五阶段添加了对用户友好的命令，这些命令将现有功能组合在一起：",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "317774940188ef41": {
+      "translation": "可发现性",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "4d58bfe31a4ab9ec": {
+      "translation": "查询别名",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "b7233052dd6398de": {
+      "translation": "探索与比较（第六阶段）",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "66afebd6326ee65f": {
+      "translation": "第六阶段添加了只读视图，用于探索输出并比较批次——而无需修改存储。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "ecb5d0de88ce965b": {
+      "translation": "底层命令",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "a31028abc263bf83": {
+      "translation": "为了实现精细的控制，原始命令仍然可用：",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "6d6e4affccb99ac2": {
+      "translation": "规范版本控制",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "80f0e46113ccd4d7": {
+      "translation": "该规范使用语义版本控制，并带有草案/稳定标记。 每个版本都标记在 Git 中（例如，`spec-v1.0-draft`）。 破坏性更改会增加主版本号。 实现应声明其目标规范版本，并容忍未知字段以实现向前兼容性。",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "ff01fb234ea9ac38": {
+      "translation": "项目结构",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "d260c0e9e79afbb1": {
+      "translation": "支持",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "b6dc36f8c6943604": {
+      "translation": "- **问题/帮助：** [讨论](https://github.com/mcp-tool-shop-org/code-batch/discussions)\n- **错误报告：** [问题](https://github.com/mcp-tool-shop-org/code-batch/issues)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "1fb815b9a436fadb": {
+      "translation": "许可证",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "6325e155e3ad88d6": {
+      "translation": "MIT",
+      "model": "translategemma:12b",
+      "timestamp": 1772035777291
+    },
+    "01995d4f7e52336a": {
+      "translation": "Motor de ejecución por lotes con direccionamiento de contenido, fragmentación determinista y resultados consultables.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "4bdb4559055e2a08": {
+      "translation": "**¿Qué es?:** Un entorno de ejecución basado en un sistema de archivos que captura el código, fragmenta el trabajo de forma determinista e indexa todas las salidas para consultas estructuradas, sin necesidad de una base de datos.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "45c5aee94b86d590": {
+      "translation": "**Para quién es:** Desarrolladores que crean pipelines de análisis de código repetibles, integraciones de CI o flujos de trabajo de transformación por lotes que requieren reproducibilidad y trazabilidad.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "7260c77a393e0abd": {
+      "translation": "**¿Por qué es diferente?:** Cada entrada se identifica por su contenido y cada ejecución es determinista. Ejecute el mismo lote seis meses después y obtenga resultados idénticos. Consulte las salidas por tipo semántico sin necesidad de analizar registros.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "5f5f0cd3ca0b3bd8": {
+      "translation": "Descripción general",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "43349a2241fa7400": {
+      "translation": "CodeBatch proporciona un entorno de ejecución basado en un sistema de archivos para realizar transformaciones deterministas sobre bases de código. Captura las entradas como instantáneas inmutables, ejecuta el trabajo en fragmentos aislados e indexa todas las salidas semánticas para una consulta eficiente, sin necesidad de una base de datos.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "00cab4713b0edf9d": {
+      "translation": "Documentación",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "69c8f58a8244707d": {
+      "translation": "- **[SPEC.md](./SPEC.md)** — Especificación completa de almacenamiento y ejecución.\n- **[docs/TASKS.md](./docs/TASKS.md)** — Referencia de tareas (parse, analyze, symbols, lint).\n- **[CHANGELOG.md](./CHANGELOG.md)** — Historial de versiones.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "785321ff8279266b": {
+      "translation": "Inicio rápido",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "ab51b327fcf9bdf8": {
+      "translation": "Flujo de trabajo humano (Fase 5)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "a5e853f1eafc6175": {
+      "translation": "La Fase 5 agrega comandos fáciles de usar que combinan funciones básicas existentes:",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "b31cb0707a15d0ba": {
+      "translation": "Descubrimiento",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "178f90d7f283b90f": {
+      "translation": "Alias de consulta",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "bcd7c6b8063ba831": {
+      "translation": "Exploración y comparación (Fase 6)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "131ba81ae5c414b5": {
+      "translation": "La Fase 6 agrega vistas de solo lectura para explorar las salidas y comparar los lotes, sin modificar el almacenamiento.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "7d3c0cd7842bf2f9": {
+      "translation": "Comandos de bajo nivel",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "2d9c23a615174ac4": {
+      "translation": "Para un control más preciso, los comandos originales siguen estando disponibles:",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "3a195b936a346f7a": {
+      "translation": "Versionado de la especificación",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "c86fd5340a7d7fd6": {
+      "translation": "La especificación utiliza el versionado semántico con marcadores de \"borrador\" y \"estable\". Cada versión está etiquetada en git (por ejemplo, `spec-v1.0-draft`). Los cambios importantes incrementan la versión principal. Las implementaciones deben declarar qué versión de la especificación utilizan y tolerar campos desconocidos para la compatibilidad hacia adelante.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "cc290f922a5da509": {
+      "translation": "Estructura del proyecto",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "68ab7fa560fa5b2b": {
+      "translation": "Soporte",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "1de881b26c69df87": {
+      "translation": "- **Preguntas / ayuda:** [Discusiones](https://github.com/mcp-tool-shop-org/code-batch/discussions)\n- **Informes de errores:** [Problemas](https://github.com/mcp-tool-shop-org/code-batch/issues)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "9572f74b6d3f62b1": {
+      "translation": "Licencia",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "ed7f97ee046bbb09": {
+      "translation": "MIT",
+      "model": "translategemma:12b",
+      "timestamp": 1772035794327
+    },
+    "2a44cfcd1f46da78": {
+      "translation": "Moteur d'exécution par lots basé sur le contenu, avec découpage déterministe et résultats interrogeables.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "ade3a7a3daec5a49": {
+      "translation": "**Qu'est-ce que c'est :** Un environnement d'exécution basé sur un système de fichiers qui sauvegarde le code, effectue le découpage de manière déterministe et indexe chaque résultat pour des requêtes structurées, sans nécessiter de base de données.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "cc2d0caa0ad186ca": {
+      "translation": "**À qui s'adresse-t-il :** Aux développeurs qui créent des pipelines d'analyse de code reproductibles, des intégrations CI ou des flux de travail de transformation par lots qui nécessitent une reproductibilité et une auditabilité.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "ad104c9c413a4f38": {
+      "translation": "**Pourquoi est-ce différent :** Chaque entrée est adressée par son contenu et chaque exécution est déterministe. Relancez le même lot six mois plus tard et obtenez des résultats identiques. Interrogez les résultats par type sémantique sans avoir à analyser les journaux.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "ef09286f45718a6f": {
+      "translation": "Aperçu",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "24e8cb9a7ea5f417": {
+      "translation": "CodeBatch fournit un environnement d'exécution basé sur un système de fichiers pour effectuer des transformations déterministes sur des bases de code. Il capture les entrées sous forme de snapshots immuables, exécute les tâches dans des segments isolés et indexe tous les résultats sémantiques pour une interrogation efficace, sans nécessiter de base de données.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "dd09f1b81c3f6ef5": {
+      "translation": "Documentation",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "5ad28da0aef3f754": {
+      "translation": "- **[SPEC.md](./SPEC.md)** — Spécification complète du stockage et de l'exécution.\n- **[docs/TASKS.md](./docs/TASKS.md)** — Référence des tâches (analyse, analyse, symboles, lint).\n- **[CHANGELOG.md](./CHANGELOG.md)** — Historique des versions.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "caef1b750e85e405": {
+      "translation": "Démarrage rapide",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "f4d942f1667bc8e5": {
+      "translation": "Flux de travail manuel (Phase 5)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "ff4e8183e1b2619a": {
+      "translation": "La phase 5 ajoute des commandes conviviales qui combinent des fonctionnalités existantes :",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "c908c537657530a9": {
+      "translation": "Découvrabilité",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "5a0093e2d56c59a2": {
+      "translation": "Alias de requête",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "5ba77c917a55aa8d": {
+      "translation": "Exploration et comparaison (Phase 6)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "b7788442e8b0b178": {
+      "translation": "La phase 6 ajoute des vues en lecture seule pour explorer les résultats et comparer les lots, sans modifier le stockage.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "d98b361c8551f73b": {
+      "translation": "Commandes de bas niveau",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "a992250fe2fe1013": {
+      "translation": "Pour un contrôle plus précis, les commandes d'origine restent disponibles :",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "88cc2a940de70b56": {
+      "translation": "Gestion des versions de la spécification",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "919575ace74d5619": {
+      "translation": "La spécification utilise la gestion des versions sémantiques avec des marqueurs \"brouillon/stable\". Chaque version est étiquetée dans Git (par exemple, `spec-v1.0-draft`). Les modifications majeures incrémentent la version principale. Les implémentations doivent déclarer quelle version de la spécification elles ciblent et tolérer les champs inconnus pour la compatibilité ascendante.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812695
+    },
+    "79d1da0af5708b6a": {
+      "translation": "Structure du projet",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812696
+    },
+    "41df3df8109be4b8": {
+      "translation": "Support",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812696
+    },
+    "d996b7a18f22ac3a": {
+      "translation": "- **Questions / aide :** [Discussions](https://github.com/mcp-tool-shop-org/code-batch/discussions)\n- **Signalement de bogues :** [Issues](https://github.com/mcp-tool-shop-org/code-batch/issues)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812696
+    },
+    "0174ffc9d6992c72": {
+      "translation": "Licence",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812696
+    },
+    "9d6e22ae9823640e": {
+      "translation": "MIT",
+      "model": "translategemma:12b",
+      "timestamp": 1772035812696
+    },
+    "31b42bde0b925b18": {
+      "translation": "सामग्री-आधारित बैच निष्पादन इंजन, जिसमें नियतात्मक विभाजन (deterministic sharding) और क्वेरी करने योग्य आउटपुट होते हैं।",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "8deb87d945af2750": {
+      "translation": "**यह क्या है:** यह एक फ़ाइल सिस्टम-आधारित निष्पादन ढांचा है जो कोड की स्नैपशॉट लेता है, कार्यों को नियतात्मक रूप से विभाजित करता है, और संरचित प्रश्नों के लिए प्रत्येक आउटपुट को अनुक्रमित करता है—किसी डेटाबेस की आवश्यकता नहीं है।",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "3bb622f6a9b17cb7": {
+      "translation": "**यह किसके लिए है:** उन डेवलपर्स के लिए जो दोहराने योग्य कोड विश्लेषण पाइपलाइन, CI एकीकरण, या बैच रूपांतरण वर्कफ़्लो बना रहे हैं, जिन्हें पुनरुत्पादकता और ऑडिट क्षमता की आवश्यकता होती है।",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "1dd518229a6b9bb7": {
+      "translation": "**यह कैसे अलग है:** प्रत्येक इनपुट सामग्री-आधारित होता है और प्रत्येक निष्पादन नियतात्मक होता है। छह महीने बाद भी उसी बैच को फिर से चलाएं और आपको समान परिणाम मिलेंगे। लॉग को पार्स किए बिना, सिमेंटिक प्रकार के आधार पर आउटपुट को क्वेरी करें।",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "a21f763f89421e7f": {
+      "translation": "अवलोकन",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "94e77422ef9ce77b": {
+      "translation": "CodeBatch कोडबेस पर नियतात्मक रूपांतरण चलाने के लिए एक फ़ाइल सिस्टम-आधारित निष्पादन ढांचा प्रदान करता है। यह इनपुट को अपरिवर्तनीय स्नैपशॉट के रूप में कैप्चर करता है, कार्यों को अलग-अलग खंडों में निष्पादित करता है, और कुशल क्वेरी के लिए सभी सिमेंटिक आउटपुट को अनुक्रमित करता है—बिना किसी डेटाबेस की आवश्यकता के।",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "e0513a26e56e1df3": {
+      "translation": "दस्तावेज़",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "62c215ae8861caed": {
+      "translation": "- **[SPEC.md](./SPEC.md)** — पूर्ण भंडारण और निष्पादन विनिर्देश\n- **[docs/TASKS.md](./docs/TASKS.md)** — कार्य संदर्भ (पार्स, विश्लेषण, प्रतीक, लिंट)\n- **[CHANGELOG.md](./CHANGELOG.md)** — संस्करण इतिहास",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "abb619d8b0588257": {
+      "translation": "त्वरित शुरुआत",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "94c65d94608850e9": {
+      "translation": "मानव कार्यप्रवाह (चरण 5)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "d5ede28b3fbb05dd": {
+      "translation": "चरण 5 में मानव-अनुकूल कमांड जोड़े गए हैं जो मौजूदा बुनियादी तत्वों को जोड़ते हैं:",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "da82e69322d6eccc": {
+      "translation": "खोज क्षमता",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "2363413fd0ed35c2": {
+      "translation": "क्वेरी उपनाम",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "8f73dac51fd2f44f": {
+      "translation": "अन्वेषण और तुलना (चरण 6)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "c71b0140bc658bf0": {
+      "translation": "चरण 6 में आउटपुट का पता लगाने और बैचों की तुलना करने के लिए केवल-पढ़ने योग्य दृश्य जोड़े गए हैं—बिना स्टोर को बदले।",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "f6aad4e86a521b0f": {
+      "translation": "निम्न-स्तरीय कमांड",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "0148b12b00bbe85c": {
+      "translation": "बारीक नियंत्रण के लिए, मूल कमांड उपलब्ध रहते हैं:",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "84721d06481863a1": {
+      "translation": "विशिष्ट संस्करण",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "296cb101123c2999": {
+      "translation": "यह विनिर्देश सिमेंटिक संस्करण का उपयोग करता है, जिसमें ड्राफ्ट/स्थिर मार्कर होते हैं। प्रत्येक संस्करण को गिट में टैग किया जाता है (उदाहरण के लिए, `spec-v1.0-draft`)। महत्वपूर्ण परिवर्तन प्रमुख संस्करण को बढ़ाते हैं। कार्यान्वयन को यह घोषित करना चाहिए कि वे किस विशिष्ट संस्करण को लक्षित करते हैं और आगे की अनुकूलता के लिए अज्ञात फ़ील्ड को सहन करते हैं।",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "d2353cadd82e82b6": {
+      "translation": "परियोजना संरचना",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "44c7e3f8c12c2f2c": {
+      "translation": "समर्थन",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "1f0c55dcb42cd779": {
+      "translation": "- **प्रश्न / सहायता:** [चर्चाएँ](https://github.com/mcp-tool-shop-org/code-batch/discussions)\n- **बग रिपोर्ट:** [समस्याएँ](https://github.com/mcp-tool-shop-org/code-batch/issues)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "cfbc372f8058f151": {
+      "translation": "लाइसेंस",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "8a691ee81405175f": {
+      "translation": "MIT",
+      "model": "translategemma:12b",
+      "timestamp": 1772035831839
+    },
+    "f463f7d32f0e450c": {
+      "translation": "Motore di esecuzione batch orientato ai contenuti, con sharding deterministico e output interrogabili.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "ac1a9810b964446e": {
+      "translation": "**Cos'è:** Un ambiente di esecuzione basato su filesystem che salva il codice, suddivide il lavoro in modo deterministico e indicizza tutti gli output per interrogazioni strutturate, senza la necessità di un database.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "b8a229c5a4e5a315": {
+      "translation": "**A chi è rivolto:** Sviluppatori che creano pipeline di analisi del codice ripetibili, integrazioni CI o flussi di lavoro di trasformazione batch che richiedono riproducibilità e auditabilità.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "eb6c3ce31f1173d3": {
+      "translation": "**Cosa lo rende diverso:** Ogni input è identificato dal suo contenuto e ogni esecuzione è deterministica. Riavviare la stessa elaborazione a distanza di sei mesi produrrà risultati identici. È possibile interrogare gli output in base al tipo semantico senza dover analizzare i log.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "f11c7b487cd6b665": {
+      "translation": "Panoramica",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "26368aadcadc5ab9": {
+      "translation": "CodeBatch fornisce un ambiente di esecuzione basato su filesystem per eseguire trasformazioni deterministiche su basi di codice. Cattura gli input come snapshot immutabili, esegue il lavoro in shard isolati e indicizza tutti gli output semantici per interrogazioni efficienti, senza richiedere un database.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "2cebf666d270d0e8": {
+      "translation": "Documentazione",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "63b5642d2bde2783": {
+      "translation": "- **[SPEC.md](./SPEC.md)** — Specifiche complete di archiviazione ed esecuzione\n- **[docs/TASKS.md](./docs/TASKS.md)** — Riferimento alle attività (analisi, controllo, simboli, linting)\n- **[CHANGELOG.md](./CHANGELOG.md)** — Cronologia delle versioni",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "d7e9780fb2074bec": {
+      "translation": "Guida Rapida",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "196b573389cda4a5": {
+      "translation": "Flusso di lavoro manuale (Fase 5)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "81ae9c7892d57694": {
+      "translation": "La Fase 5 aggiunge comandi intuitivi che combinano funzionalità esistenti:",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "956351555be09500": {
+      "translation": "Scoperta",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "bbab3feb421a2273": {
+      "translation": "Alias di interrogazione",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "f4de8d9fd6bdb569": {
+      "translation": "Esplorazione e confronto (Fase 6)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "62d8e1c76b8b21d8": {
+      "translation": "La Fase 6 aggiunge viste di sola lettura per esplorare gli output e confrontare le elaborazioni, senza modificare l'archivio.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "ef49ff43ed1604bd": {
+      "translation": "Comandi di basso livello",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "94bac8cea10f8ab7": {
+      "translation": "Per un controllo più preciso, i comandi originali rimangono disponibili:",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "4df27f76d44ea05a": {
+      "translation": "Versionamento delle specifiche",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "f86708520137e16b": {
+      "translation": "Le specifiche utilizzano il versionamento semantico con indicatori \"bozza/stabile\". Ogni versione è contrassegnata in git (ad esempio, `spec-v1.0-draft`). Le modifiche incompatibili incrementano la versione principale. Le implementazioni devono dichiarare quale versione delle specifiche utilizzano e tollerare i campi sconosciuti per la compatibilità con le versioni future.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "b114cb04f77862a6": {
+      "translation": "Struttura del progetto",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "54c9f8e12c53cc48": {
+      "translation": "Supporto",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "0d972f22fcab4d67": {
+      "translation": "- **Domande / aiuto:** [Discussioni](https://github.com/mcp-tool-shop-org/code-batch/discussions)\n- **Segnalazione di bug:** [Problemi](https://github.com/mcp-tool-shop-org/code-batch/issues)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "0870aa1dcfea97cc": {
+      "translation": "Licenza",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "cf7d056fb6111803": {
+      "translation": "MIT",
+      "model": "translategemma:12b",
+      "timestamp": 1772035850275
+    },
+    "d35b8c72f36ebb68": {
+      "translation": "Motor de execução em lote com endereçamento de conteúdo, particionamento determinístico e saídas pesquisáveis.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867787
+    },
+    "8d544ba296c8af6c": {
+      "translation": "**O que é:** Uma plataforma de execução baseada em sistema de arquivos que captura o código, particiona o trabalho de forma determinística e indexa todas as saídas para consultas estruturadas – sem a necessidade de um banco de dados.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867787
+    },
+    "2b0654e14e28fe25": {
+      "translation": "**Para quem é:** Desenvolvedores que criam pipelines de análise de código repetíveis, integrações de CI ou fluxos de trabalho de transformação em lote que exigem reprodutibilidade e auditabilidade.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867787
+    },
+    "d005f840074b84cd": {
+      "translation": "**O que o diferencia:** Cada entrada é endereçada por conteúdo e cada execução é determinística. Execute o mesmo lote seis meses depois e obtenha resultados idênticos. Consulte as saídas por tipo semântico, sem analisar logs.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867787
+    },
+    "f0bc79fb3b3b2362": {
+      "translation": "Visão geral",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867787
+    },
+    "be4bb1d3cb31753d": {
+      "translation": "O CodeBatch oferece uma plataforma de execução baseada em sistema de arquivos para realizar transformações determinísticas em bases de código. Ele captura as entradas como snapshots imutáveis, executa o trabalho em partições isoladas e indexa todas as saídas semânticas para consultas eficientes – sem a necessidade de um banco de dados.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867787
+    },
+    "5da143a95bd4adb3": {
+      "translation": "Documentação",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867787
+    },
+    "e7a9138e5b6cf047": {
+      "translation": "- **[SPEC.md](./SPEC.md)** — Especificação completa de armazenamento e execução.\n- **[docs/TASKS.md](./docs/TASKS.md)** — Referência de tarefas (análise, análise, símbolos, lint).\n- **[CHANGELOG.md](./CHANGELOG.md)** — Histórico de versões.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867787
+    },
+    "c88bcdb0dd505b6b": {
+      "translation": "Início rápido",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "17ac93ba4b7e190b": {
+      "translation": "Fluxo de trabalho humano (Fase 5)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "1e96afa7771453b3": {
+      "translation": "A Fase 5 adiciona comandos amigáveis ao usuário que combinam primitivas existentes:",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "b7b0f2465695d618": {
+      "translation": "Descoberta",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "926291728463afb3": {
+      "translation": "Apelidos de consulta",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "87cf1a02d2a1b9da": {
+      "translation": "Exploração e comparação (Fase 6)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "c95520521a02b494": {
+      "translation": "A Fase 6 adiciona visualizações somente leitura para explorar as saídas e comparar lotes – sem modificar o armazenamento.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "22e1b67c708e9003": {
+      "translation": "Comandos de baixo nível",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "ef98d40b142c9c82": {
+      "translation": "Para um controle mais detalhado, os comandos originais permanecem disponíveis:",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "2698e3b7f316d20d": {
+      "translation": "Versionamento da especificação",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "b86b5ee2bf3a3def": {
+      "translation": "A especificação utiliza versionamento semântico com marcadores de rascunho/estável. Cada versão é marcada no git (por exemplo, `spec-v1.0-draft`). Alterações que quebram a compatibilidade incrementam a versão principal. As implementações devem declarar qual versão da especificação elas utilizam e tolerar campos desconhecidos para compatibilidade com versões futuras.",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "0f52ed7837bd1cc9": {
+      "translation": "Estrutura do projeto",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "49a342cfc9df6fa7": {
+      "translation": "Suporte",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "02c042a3ad5373fe": {
+      "translation": "- **Dúvidas / ajuda:** [Discussões](https://github.com/mcp-tool-shop-org/code-batch/discussions)\n- **Relatórios de bugs:** [Problemas](https://github.com/mcp-tool-shop-org/code-batch/issues)",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "2aca9b0e72841008": {
+      "translation": "Licença",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    },
+    "673d526b33ab644f": {
+      "translation": "MIT",
+      "model": "translategemma:12b",
+      "timestamp": 1772035867788
+    }
+  }
+}
