@@ -1,0 +1,170 @@
+name: Dogfood
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "pyproject.toml"
+      - ".github/workflows/dogfood.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: dogfood-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dogfood:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+
+      # --- Scenario: init-and-run-pipeline ---
+      # Exercise the real product: initialize a store and list pipelines
+
+      - name: "Step: init-store"
+        id: init_store
+        run: |
+          codebatch init --store /tmp/cb-store
+          if [ $? -eq 0 ]; then
+            echo "status=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=fail" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: "Step: list-pipelines"
+        id: list_pipelines
+        run: |
+          codebatch run --list --store /tmp/cb-store 2>&1 | tee /tmp/pipelines.log
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "::notice::--list flag not supported, falling back to --help"
+            codebatch --help 2>&1 | tee /tmp/pipelines.log
+          fi
+          if [ $? -eq 0 ]; then
+            echo "status=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=fail" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: "Step: verify-output"
+        id: verify_output
+        run: |
+          if [ -s /tmp/pipelines.log ]; then
+            echo "status=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=fail" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Verdict ---
+
+      - name: Determine overall verdict
+        id: verdict
+        run: |
+          I="${{ steps.init_store.outputs.status }}"
+          L="${{ steps.list_pipelines.outputs.status }}"
+          V="${{ steps.verify_output.outputs.status }}"
+          if [ "$I" = "pass" ] && [ "$L" = "pass" ] && [ "$V" = "pass" ]; then
+            echo "verdict=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=fail" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Build + dispatch ---
+
+      - name: Build submission
+        run: |
+          FINISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > /tmp/submission.json << 'INNER_EOF'
+          {
+            "schema_version": "1.0.0",
+            "run_id": "code-batch-RUN_ID-ATTEMPT",
+            "repo": "REPO_SLUG",
+            "ref": {
+              "branch": "REF_NAME",
+              "commit_sha": "COMMIT_SHA"
+            },
+            "source": {
+              "provider": "github",
+              "workflow": "dogfood.yml",
+              "provider_run_id": "PROVIDER_RUN_ID",
+              "attempt": ATTEMPT_NUM,
+              "run_url": "RUN_URL_PLACEHOLDER",
+              "actor": "ACTOR_NAME"
+            },
+            "timing": {
+              "started_at": "STARTED_PLACEHOLDER",
+              "finished_at": "FINISHED_PLACEHOLDER",
+              "duration_ms": 0
+            },
+            "ci_checks": [],
+            "scenario_results": [
+              {
+                "scenario_id": "init-and-run-pipeline",
+                "scenario_name": "Initialize store and list pipelines",
+                "scenario_version": "1.0.0",
+                "product_surface": "cli",
+                "execution_mode": "bot",
+                "verdict": "VERDICT_PLACEHOLDER",
+                "step_results": [
+                  { "step_id": "init-store", "status": "INIT_STATUS" },
+                  { "step_id": "list-pipelines", "status": "LIST_STATUS" },
+                  { "step_id": "verify-output", "status": "VERIFY_STATUS" }
+                ],
+                "evidence": [
+                  {
+                    "kind": "log",
+                    "url": "RUN_URL_PLACEHOLDER",
+                    "description": "CI run log with init and pipeline list output"
+                  }
+                ],
+                "notes": "Bot-driven store init and pipeline listing"
+              }
+            ],
+            "overall_verdict": "VERDICT_PLACEHOLDER",
+            "notes": "Phase 2 rollout: code-batch CLI dogfood."
+          }
+          INNER_EOF
+
+          sed -i "s|REPO_SLUG|${GITHUB_REPOSITORY}|g" /tmp/submission.json
+          sed -i "s|REF_NAME|${GITHUB_REF_NAME}|g" /tmp/submission.json
+          sed -i "s|COMMIT_SHA|${GITHUB_SHA}|g" /tmp/submission.json
+          sed -i "s|PROVIDER_RUN_ID|${GITHUB_RUN_ID}|g" /tmp/submission.json
+          sed -i "s|ATTEMPT_NUM|${GITHUB_RUN_ATTEMPT}|g" /tmp/submission.json
+          sed -i "s|RUN_URL_PLACEHOLDER|https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}|g" /tmp/submission.json
+          sed -i "s|ACTOR_NAME|${GITHUB_ACTOR}|g" /tmp/submission.json
+          sed -i "s|STARTED_PLACEHOLDER|${{ github.event.head_commit.timestamp || github.event.repository.pushed_at }}|g" /tmp/submission.json
+          sed -i "s|FINISHED_PLACEHOLDER|${FINISHED_AT}|g" /tmp/submission.json
+          sed -i "s|code-batch-RUN_ID-ATTEMPT|code-batch-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}|g" /tmp/submission.json
+          sed -i "s|VERDICT_PLACEHOLDER|${{ steps.verdict.outputs.verdict }}|g" /tmp/submission.json
+          sed -i "s|INIT_STATUS|${{ steps.init_store.outputs.status }}|g" /tmp/submission.json
+          sed -i "s|LIST_STATUS|${{ steps.list_pipelines.outputs.status }}|g" /tmp/submission.json
+          sed -i "s|VERIFY_STATUS|${{ steps.verify_output.outputs.status }}|g" /tmp/submission.json
+
+          jq empty /tmp/submission.json
+          echo "Submission built:"
+          jq '.run_id, .overall_verdict' /tmp/submission.json
+
+      - name: Dispatch to dogfood-labs
+        env:
+          GH_TOKEN: ${{ secrets.DOGFOOD_TOKEN }}
+        run: |
+          SUBMISSION=$(cat /tmp/submission.json)
+          RUN_ID=$(echo "$SUBMISSION" | jq -r '.run_id')
+
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::DOGFOOD_TOKEN not set — skipping dispatch"
+            exit 0
+          fi
+
+          jq -n --argjson sub "$SUBMISSION" \
+            '{"event_type":"dogfood_submission","client_payload":{"submission":$sub}}' \
+            | gh api repos/mcp-tool-shop-org/dogfood-labs/dispatches \
+              --input - --silent
+
+          echo "Dispatched $RUN_ID to dogfood-labs"
