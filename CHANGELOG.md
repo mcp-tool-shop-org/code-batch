@@ -4,6 +4,8 @@ All notable changes to the CodeBatch specification and implementation.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-03-20
+
 ### Fixed
 - **Version mismatch** — `__init__.__version__`, `common.VERSION`, and `PRODUCER.version`
   now all derive from `pyproject.toml` via `importlib.metadata`. No more triple-maintenance
