@@ -812,6 +812,512 @@ def lint_variable_shadowing(ast_data: dict, path: str) -> list[dict]:
     return diagnostics
 
 
+# =============================================================================
+# JS/TS AST-aware lint rules (tree-sitter)
+# =============================================================================
+
+
+def _js_collect_import_names(node: dict) -> dict[str, int]:
+    """Collect all imported names from a tree-sitter JS/TS AST.
+
+    Returns:
+        Dict mapping imported name to line number.
+    """
+    imports: dict[str, int] = {}
+
+    def walk(n: dict) -> None:
+        ntype = n.get("type", "")
+        lineno = n.get("start_point", {}).get("row", 0) + 1
+
+        if ntype == "import_statement":
+            # Collect identifiers from import clauses
+            for child in n.get("children", []):
+                _js_collect_import_identifiers(child, imports, lineno)
+            return  # Don't recurse further into import
+
+        for child in n.get("children", []):
+            walk(child)
+
+    walk(node)
+    return imports
+
+
+def _js_collect_import_identifiers(
+    node: dict, imports: dict[str, int], lineno: int
+) -> None:
+    """Recursively collect imported identifier names."""
+    ntype = node.get("type", "")
+
+    if ntype == "identifier" and node.get("name"):
+        imports[node["name"]] = lineno
+    elif ntype == "import_specifier":
+        # { foo as bar } — the local name is the last identifier
+        children = node.get("children", [])
+        # Find the local binding name (last identifier child, or the aliased name)
+        ids = [c for c in children if c.get("type") == "identifier" and c.get("name")]
+        if ids:
+            # Last identifier is the local name (alias or original)
+            imports[ids[-1]["name"]] = lineno
+        return
+    elif ntype == "namespace_import":
+        # import * as name
+        for child in node.get("children", []):
+            if child.get("type") == "identifier" and child.get("name"):
+                imports[child["name"]] = lineno
+        return
+
+    for child in node.get("children", []):
+        _js_collect_import_identifiers(child, imports, lineno)
+
+
+def _js_collect_used_names(node: dict, skip_declarations: bool = False) -> set[str]:
+    """Collect all identifier references used in expressions (not declarations).
+
+    Args:
+        node: Tree-sitter AST node dict.
+        skip_declarations: If True, skip declaration sites.
+
+    Returns:
+        Set of referenced identifier names.
+    """
+    used: set[str] = set()
+
+    def walk(n: dict, in_decl: bool = False) -> None:
+        ntype = n.get("type", "")
+
+        # Skip import statements entirely — they're declarations
+        if ntype == "import_statement":
+            return
+
+        # Variable declarator: name child is a declaration, value child is usage
+        if ntype == "variable_declarator":
+            children = n.get("children", [])
+            for i, child in enumerate(children):
+                if child.get("type") == "identifier" and i == 0:
+                    continue  # Skip the declared name (first identifier)
+                walk(child, False)
+            return
+
+        # Function/class declaration: name is a declaration, body is usage
+        if ntype in ("function_declaration", "class_declaration"):
+            children = n.get("children", [])
+            for child in children:
+                if child.get("type") == "identifier":
+                    continue  # Skip function/class name
+                walk(child, False)
+            return
+
+        # Parameters: names are declarations
+        if ntype in ("formal_parameters", "required_parameter", "optional_parameter"):
+            # Don't collect parameter names as uses
+            for child in n.get("children", []):
+                if child.get("type") not in ("identifier", "type_identifier"):
+                    walk(child, True)
+            return
+
+        # Identifiers in expression context are uses
+        if ntype == "identifier" and not in_decl:
+            name = n.get("name")
+            if name:
+                used.add(name)
+
+        for child in n.get("children", []):
+            walk(child, in_decl)
+
+    walk(node)
+    return used
+
+
+def _js_collect_declared_variables(node: dict) -> dict[str, dict]:
+    """Collect all variable declarations (const/let/var) from JS/TS AST.
+
+    Returns:
+        Dict mapping variable name to {line, scope, type}.
+    """
+    declared: dict[str, dict] = {}
+
+    def walk(n: dict, scope: str = "module") -> None:
+        ntype = n.get("type", "")
+        lineno = n.get("start_point", {}).get("row", 0) + 1
+
+        # Function declaration — name is declared, creates new scope
+        if ntype == "function_declaration":
+            name = n.get("name")
+            if name:
+                declared[name] = {"line": lineno, "scope": scope, "type": "function"}
+            for child in n.get("children", []):
+                walk(child, name or scope)
+            return
+
+        # Class declaration
+        if ntype == "class_declaration":
+            name = n.get("name")
+            if name:
+                declared[name] = {"line": lineno, "scope": scope, "type": "class"}
+            for child in n.get("children", []):
+                walk(child, name or scope)
+            return
+
+        # Variable declarator
+        if ntype == "variable_declarator":
+            name = n.get("name")
+            if name:
+                declared[name] = {"line": lineno, "scope": scope, "type": "variable"}
+            return
+
+        # Method definition — creates new scope
+        if ntype == "method_definition":
+            name = n.get("name")
+            for child in n.get("children", []):
+                walk(child, name or scope)
+            return
+
+        # Arrow function — creates new scope
+        if ntype == "arrow_function":
+            for child in n.get("children", []):
+                walk(child, scope)
+            return
+
+        for child in n.get("children", []):
+            walk(child, scope)
+
+    walk(node)
+    return declared
+
+
+def _js_collect_scoped_declarations(
+    node: dict,
+) -> dict[str, dict[str, int]]:
+    """Collect declarations grouped by scope for shadowing detection.
+
+    Returns:
+        Dict mapping scope name to {variable_name: line_number}.
+    """
+    scopes: dict[str, dict[str, int]] = {"module": {}}
+
+    def walk(n: dict, scope: str = "module", parent_scopes: list[str] | None = None) -> None:
+        if parent_scopes is None:
+            parent_scopes = []
+        ntype = n.get("type", "")
+        lineno = n.get("start_point", {}).get("row", 0) + 1
+
+        # Function declaration — creates new scope
+        if ntype == "function_declaration":
+            name = n.get("name")
+            if name:
+                if scope not in scopes:
+                    scopes[scope] = {}
+                scopes[scope][name] = lineno
+                new_scope = f"{scope}.{name}"
+                scopes[new_scope] = {}
+                for child in n.get("children", []):
+                    walk(child, new_scope, parent_scopes + [scope])
+                return
+
+        # Class declaration
+        if ntype == "class_declaration":
+            name = n.get("name")
+            if name:
+                if scope not in scopes:
+                    scopes[scope] = {}
+                scopes[scope][name] = lineno
+                new_scope = f"{scope}.{name}"
+                scopes[new_scope] = {}
+                for child in n.get("children", []):
+                    walk(child, new_scope, parent_scopes + [scope])
+                return
+
+        # Method definition
+        if ntype == "method_definition":
+            name = n.get("name")
+            if name:
+                new_scope = f"{scope}.{name}"
+                scopes[new_scope] = {}
+                for child in n.get("children", []):
+                    walk(child, new_scope, parent_scopes + [scope])
+                return
+
+        # Arrow function — anonymous scope
+        if ntype == "arrow_function":
+            new_scope = f"{scope}.<arrow:{lineno}>"
+            scopes[new_scope] = {}
+            for child in n.get("children", []):
+                walk(child, new_scope, parent_scopes + [scope])
+            return
+
+        # Variable declarator — register in current scope
+        if ntype == "variable_declarator":
+            name = n.get("name")
+            if name:
+                if scope not in scopes:
+                    scopes[scope] = {}
+                scopes[scope][name] = lineno
+            return
+
+        # Formal parameters — register in current scope
+        if ntype in ("required_parameter", "optional_parameter"):
+            for child in n.get("children", []):
+                if child.get("type") == "identifier" and child.get("name"):
+                    if scope not in scopes:
+                        scopes[scope] = {}
+                    scopes[scope][child["name"]] = lineno
+            return
+
+        if ntype == "identifier" and n.get("name"):
+            # Only collect if parent is formal_parameters
+            pass  # Handled by required_parameter/optional_parameter above
+
+        for child in n.get("children", []):
+            walk(child, scope, parent_scopes)
+
+    walk(node)
+    return scopes
+
+
+def lint_js_unused_imports(ast_data: dict, path: str) -> list[dict]:
+    """L101: Detect unused imports in JS/TS tree-sitter AST.
+
+    Args:
+        ast_data: Tree-sitter AST dict.
+        path: Source file path.
+
+    Returns:
+        List of diagnostic records.
+    """
+    imports = _js_collect_import_names(ast_data)
+    if not imports:
+        return []
+
+    used = _js_collect_used_names(ast_data)
+
+    diagnostics = []
+    for name, lineno in imports.items():
+        if name not in used:
+            diagnostics.append({
+                "kind": "diagnostic",
+                "path": path,
+                "severity": "warning",
+                "code": "L101",
+                "message": f"Unused import '{name}'",
+                "line": lineno,
+                "col": 1,
+            })
+    return diagnostics
+
+
+def lint_js_unused_variables(ast_data: dict, path: str) -> list[dict]:
+    """L102: Detect unused variables in JS/TS tree-sitter AST.
+
+    Args:
+        ast_data: Tree-sitter AST dict.
+        path: Source file path.
+
+    Returns:
+        List of diagnostic records.
+    """
+    declared = _js_collect_declared_variables(ast_data)
+    used = _js_collect_used_names(ast_data)
+
+    diagnostics = []
+    for name, info in declared.items():
+        # Skip functions and classes (may be exported)
+        if info["type"] in ("function", "class"):
+            continue
+        # Skip underscore-prefixed (intentionally unused)
+        if name.startswith("_"):
+            continue
+        if name not in used:
+            diagnostics.append({
+                "kind": "diagnostic",
+                "path": path,
+                "severity": "warning",
+                "code": "L102",
+                "message": f"Unused variable '{name}'",
+                "line": info["line"],
+                "col": 1,
+            })
+    return diagnostics
+
+
+def lint_js_variable_shadowing(ast_data: dict, path: str) -> list[dict]:
+    """L103: Detect variable shadowing in JS/TS tree-sitter AST.
+
+    Args:
+        ast_data: Tree-sitter AST dict.
+        path: Source file path.
+
+    Returns:
+        List of diagnostic records.
+    """
+    diagnostics: list[dict] = []
+
+    def walk(
+        node: dict, scope: str, parent_names: dict[str, int]
+    ) -> None:
+        ntype = node.get("type", "")
+        lineno = node.get("start_point", {}).get("row", 0) + 1
+
+        # Scope-creating nodes
+        if ntype in ("function_declaration", "method_definition", "arrow_function"):
+            name = node.get("name")
+            inner_names: dict[str, int] = {}
+
+            # Collect parameters
+            for child in node.get("children", []):
+                if child.get("type") == "formal_parameters":
+                    _collect_param_names(child, inner_names, lineno)
+
+            # Check params for shadowing
+            for pname, pline in inner_names.items():
+                if pname in parent_names:
+                    diagnostics.append({
+                        "kind": "diagnostic",
+                        "path": path,
+                        "severity": "info",
+                        "code": "L103",
+                        "message": f"Parameter '{pname}' shadows variable from outer scope",
+                        "line": pline,
+                        "col": 1,
+                    })
+
+            merged = {**parent_names, **inner_names}
+            for child in node.get("children", []):
+                walk(child, name or scope, merged)
+            return
+
+        # Variable declarator — check for shadowing
+        if ntype == "variable_declarator":
+            vname = node.get("name")
+            if vname and vname in parent_names and not vname.startswith("_"):
+                diagnostics.append({
+                    "kind": "diagnostic",
+                    "path": path,
+                    "severity": "info",
+                    "code": "L103",
+                    "message": f"Variable '{vname}' shadows variable from outer scope",
+                    "line": lineno,
+                    "col": 1,
+                })
+            return
+
+        for child in node.get("children", []):
+            walk(child, scope, parent_names)
+
+    # Build top-level names first
+    top_names: dict[str, int] = {}
+    for child in ast_data.get("children", []):
+        _collect_toplevel_names(child, top_names)
+
+    # Walk for shadowing — pass empty parent_names at module level
+    # (top-level declarations don't shadow each other; only inner scopes shadow outer)
+    for child in ast_data.get("children", []):
+        ntype = child.get("type", "")
+        # For scope-creating nodes, pass top_names as parent so inner decls get checked
+        if ntype in ("function_declaration", "method_definition", "arrow_function"):
+            walk(child, "module", top_names)
+        elif ntype == "export_statement":
+            # Walk into exported declarations
+            for sub in child.get("children", []):
+                if sub.get("type") in ("function_declaration", "class_declaration"):
+                    walk(sub, "module", top_names)
+                else:
+                    walk(sub, "module", {})
+        else:
+            # Top-level declarations — don't check against themselves
+            walk(child, "module", {})
+
+    return diagnostics
+
+
+def _collect_param_names(node: dict, names: dict[str, int], default_line: int) -> None:
+    """Collect parameter names from formal_parameters node."""
+    for child in node.get("children", []):
+        ctype = child.get("type", "")
+        if ctype == "identifier" and child.get("name"):
+            lineno = child.get("start_point", {}).get("row", default_line - 1) + 1
+            names[child["name"]] = lineno
+        elif ctype in ("required_parameter", "optional_parameter"):
+            for sub in child.get("children", []):
+                if sub.get("type") == "identifier" and sub.get("name"):
+                    lineno = sub.get("start_point", {}).get("row", default_line - 1) + 1
+                    names[sub["name"]] = lineno
+                    break  # First identifier is the param name
+
+
+def _collect_toplevel_names(node: dict, names: dict[str, int]) -> None:
+    """Collect top-level declared names (variables, functions, classes)."""
+    ntype = node.get("type", "")
+    lineno = node.get("start_point", {}).get("row", 0) + 1
+
+    if ntype in ("function_declaration", "class_declaration"):
+        name = node.get("name")
+        if name:
+            names[name] = lineno
+    elif ntype == "lexical_declaration":
+        for child in node.get("children", []):
+            if child.get("type") == "variable_declarator" and child.get("name"):
+                names[child["name"]] = lineno
+    elif ntype == "variable_declaration":
+        for child in node.get("children", []):
+            if child.get("type") == "variable_declarator" and child.get("name"):
+                names[child["name"]] = lineno
+    elif ntype == "export_statement":
+        for child in node.get("children", []):
+            _collect_toplevel_names(child, names)
+    elif ntype == "import_statement":
+        # Imports are top-level names
+        for child in node.get("children", []):
+            _collect_import_toplevel(child, names, lineno)
+
+
+def _collect_import_toplevel(node: dict, names: dict[str, int], lineno: int) -> None:
+    """Collect imported names as top-level names."""
+    ntype = node.get("type", "")
+    if ntype == "identifier" and node.get("name"):
+        names[node["name"]] = lineno
+    elif ntype == "import_specifier":
+        ids = [c for c in node.get("children", []) if c.get("type") == "identifier" and c.get("name")]
+        if ids:
+            names[ids[-1]["name"]] = lineno
+        return
+    elif ntype == "namespace_import":
+        for child in node.get("children", []):
+            if child.get("type") == "identifier" and child.get("name"):
+                names[child["name"]] = lineno
+        return
+    for child in node.get("children", []):
+        _collect_import_toplevel(child, names, lineno)
+
+
+def lint_js_ast(ast_data: dict, path: str, config: dict) -> list[dict]:
+    """Run AST-aware lint rules on JavaScript/TypeScript code.
+
+    Args:
+        ast_data: Tree-sitter AST dict.
+        path: Source file path.
+        config: Lint configuration.
+
+    Returns:
+        List of diagnostic records.
+    """
+    diagnostics = []
+
+    check_unused_imports = config.get("check_unused_imports", True)
+    check_unused_variables = config.get("check_unused_variables", True)
+    check_shadowing = config.get("check_variable_shadowing", True)
+
+    if check_unused_imports:
+        diagnostics.extend(lint_js_unused_imports(ast_data, path))
+
+    if check_unused_variables:
+        diagnostics.extend(lint_js_unused_variables(ast_data, path))
+
+    if check_shadowing:
+        diagnostics.extend(lint_js_variable_shadowing(ast_data, path))
+
+    return diagnostics
+
+
 def lint_python_ast(ast_data: dict, path: str, config: dict) -> list[dict]:
     """Run AST-aware lint rules on Python code.
 
@@ -894,6 +1400,11 @@ def lint_executor(
                 if ast_type == "Module" and ast_mode == "full":
                     # Run AST-aware Python lint rules
                     ast_diagnostics = lint_python_ast(ast_data, path, config)
+                    outputs.extend(ast_diagnostics)
+                    ast_linted_paths.add(path)
+                elif ast_type == "program" and ast_data.get("parser") == "tree-sitter":
+                    # Run AST-aware JS/TS lint rules
+                    ast_diagnostics = lint_js_ast(ast_data, path, config)
                     outputs.extend(ast_diagnostics)
                     ast_linted_paths.add(path)
 

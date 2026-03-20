@@ -4,6 +4,31 @@ All notable changes to the CodeBatch specification and implementation.
 
 ## [Unreleased]
 
+### Fixed
+- **Version mismatch** — `__init__.__version__`, `common.VERSION`, and `PRODUCER.version`
+  now all derive from `pyproject.toml` via `importlib.metadata`. No more triple-maintenance
+  of version strings across `0.1.0` / `0.7.0` / `1.0.0`.
+
+### Added
+- **JS/TS AST-aware lint rules (L101-L103)** — tree-sitter ASTs now get the same
+  AST-aware linting as Python:
+  - L101: Unused import detection for JS/TS
+  - L102: Unused variable detection for JS/TS
+  - L103: Variable shadowing detection for JS/TS
+  - Wired into `lint_executor` alongside existing Python AST rules
+- **Parallel shard execution** — `WorkflowRunner.run()` and `.resume()` accept
+  `max_workers` (default 1 = sequential). When > 1, shards within each task
+  execute concurrently via `ThreadPoolExecutor`. Tasks still execute sequentially
+  to respect dependency order. Each thread gets its own `ShardRunner` for isolation.
+- **CI coverage reporting** — `pytest-cov` now runs in CI with `--cov-fail-under=70`
+  and `--cov-report=term-missing` for visibility into uncovered lines.
+
+### Testing
+- 31 new tests (561 total):
+  - 4 version consistency tests (`test_version.py`)
+  - 20 JS/TS lint rule tests (`test_lint_js.py`)
+  - 7 parallel execution tests (`test_parallel.py`)
+
 ## [1.0.0] - 2026-02-27
 
 ### Added

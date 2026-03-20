@@ -6,11 +6,13 @@ This module defines contract-level constants and helpers used across all compone
 from datetime import datetime, timezone
 from typing import Tuple
 
+from . import __version__
+
 # Schema version as integer per contract
 SCHEMA_VERSION = 1
 
-# CodeBatch version
-VERSION = "0.7.0"
+# CodeBatch version — single source of truth is pyproject.toml via __version__
+VERSION = __version__
 
 # Producer info - identifies the implementation that created records
 PRODUCER = {

@@ -11,6 +11,7 @@ Phase 5 rules:
 - Purely orchestrating existing primitives
 """
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator, Optional
@@ -225,14 +226,19 @@ class WorkflowRunner:
         task_filter: Optional[str] = None,
         on_shard_start: Optional[callable] = None,
         on_shard_complete: Optional[callable] = None,
+        max_workers: int = 1,
     ) -> RunResult:
-        """Run all tasks and shards in a batch sequentially.
+        """Run all tasks and shards in a batch.
+
+        Tasks execute sequentially (respecting dependency order).
+        Shards within each task execute in parallel when max_workers > 1.
 
         Args:
             batch_id: Batch ID to run.
             task_filter: If provided, only run this task.
             on_shard_start: Callback(batch_id, task_id, shard_id) when shard starts.
             on_shard_complete: Callback(batch_id, task_id, shard_id, state) when done.
+            max_workers: Maximum parallel shard workers (default 1 = sequential).
 
         Returns:
             RunResult with execution summary.
@@ -255,36 +261,111 @@ class WorkflowRunner:
 
             task_failed = False
 
+            # Collect eligible shards for this task
+            eligible_shards = []
             for shard_id in sorted(shards_with_files):
-                # Check current state
                 try:
                     state = self.shard_runner._load_state(batch_id, task_id, shard_id)
                 except FileNotFoundError:
-                    # Shard doesn't exist (no files in this prefix)
                     continue
 
-                # Skip if already done
                 if state.get("status") == "done":
                     result.shards_completed += 1
                     continue
 
-                # Check dependencies
                 if depends_on and not self._check_deps_complete(
                     batch_id, depends_on, shard_id
                 ):
-                    # Skip - deps not ready
                     continue
 
-                # Run the shard
-                if on_shard_start:
-                    on_shard_start(batch_id, task_id, shard_id)
+                eligible_shards.append(shard_id)
 
-                try:
-                    final_state = self.shard_runner.run_shard(
-                        batch_id, task_id, shard_id, executor
-                    )
-                except Exception as e:
-                    final_state = {"status": "failed", "error": str(e)}
+            if max_workers > 1 and len(eligible_shards) > 1:
+                # Parallel shard execution
+                task_failed = self._run_shards_parallel(
+                    batch_id, task_id, executor, eligible_shards,
+                    result, on_shard_start, on_shard_complete,
+                    max_workers,
+                )
+            else:
+                # Sequential shard execution
+                for shard_id in eligible_shards:
+                    if on_shard_start:
+                        on_shard_start(batch_id, task_id, shard_id)
+
+                    try:
+                        final_state = self.shard_runner.run_shard(
+                            batch_id, task_id, shard_id, executor
+                        )
+                    except Exception as e:
+                        final_state = {"status": "failed", "error": str(e)}
+
+                    if on_shard_complete:
+                        on_shard_complete(batch_id, task_id, shard_id, final_state)
+
+                    if final_state.get("status") == "done":
+                        result.shards_completed += 1
+                    else:
+                        result.shards_failed += 1
+                        task_failed = True
+
+            if task_failed:
+                result.tasks_failed += 1
+            else:
+                result.tasks_completed += 1
+
+        result.success = result.tasks_failed == 0
+        return result
+
+    def _run_shards_parallel(
+        self,
+        batch_id: str,
+        task_id: str,
+        executor: callable,
+        shard_ids: list[str],
+        result: RunResult,
+        on_shard_start: Optional[callable],
+        on_shard_complete: Optional[callable],
+        max_workers: int,
+    ) -> bool:
+        """Run shards in parallel using a thread pool.
+
+        Each shard gets its own ShardRunner instance to avoid state conflicts.
+
+        Args:
+            batch_id: Batch ID.
+            task_id: Task ID.
+            executor: Task executor function.
+            shard_ids: List of shard IDs to run.
+            result: RunResult to update (shards_completed/failed).
+            on_shard_start: Optional callback.
+            on_shard_complete: Optional callback.
+            max_workers: Thread pool size.
+
+        Returns:
+            True if any shard failed, False if all succeeded.
+        """
+        task_failed = False
+
+        def run_one_shard(shard_id: str) -> tuple[str, dict]:
+            # Each thread gets its own ShardRunner for isolation
+            runner = ShardRunner(self.store_root)
+            if on_shard_start:
+                on_shard_start(batch_id, task_id, shard_id)
+            try:
+                final_state = runner.run_shard(
+                    batch_id, task_id, shard_id, executor
+                )
+            except Exception as e:
+                final_state = {"status": "failed", "error": str(e)}
+            return shard_id, final_state
+
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {
+                pool.submit(run_one_shard, sid): sid for sid in shard_ids
+            }
+            for future in as_completed(futures):
+                shard_id, final_state = future.result()
 
                 if on_shard_complete:
                     on_shard_complete(batch_id, task_id, shard_id, final_state)
@@ -295,19 +376,14 @@ class WorkflowRunner:
                     result.shards_failed += 1
                     task_failed = True
 
-            if task_failed:
-                result.tasks_failed += 1
-            else:
-                result.tasks_completed += 1
-
-        result.success = result.tasks_failed == 0
-        return result
+        return task_failed
 
     def resume(
         self,
         batch_id: str,
         on_shard_start: Optional[callable] = None,
         on_shard_complete: Optional[callable] = None,
+        max_workers: int = 1,
     ) -> RunResult:
         """Resume a batch, running only shards not marked done.
 
@@ -315,6 +391,7 @@ class WorkflowRunner:
             batch_id: Batch ID to resume.
             on_shard_start: Callback when shard starts.
             on_shard_complete: Callback when shard completes.
+            max_workers: Maximum parallel shard workers (default 1 = sequential).
 
         Returns:
             RunResult with execution summary.
@@ -324,6 +401,7 @@ class WorkflowRunner:
             batch_id,
             on_shard_start=on_shard_start,
             on_shard_complete=on_shard_complete,
+            max_workers=max_workers,
         )
 
 
