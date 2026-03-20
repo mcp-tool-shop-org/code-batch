@@ -30,7 +30,7 @@ jobs:
       - name: "Step: init-store"
         id: init_store
         run: |
-          codebatch init --store /tmp/cb-store
+          codebatch init /tmp/cb-store
           if [ $? -eq 0 ]; then
             echo "status=pass" >> "$GITHUB_OUTPUT"
           else
@@ -40,12 +40,7 @@ jobs:
       - name: "Step: list-pipelines"
         id: list_pipelines
         run: |
-          codebatch run --list --store /tmp/cb-store 2>&1 | tee /tmp/pipelines.log
-          EXIT_CODE=$?
-          if [ $EXIT_CODE -ne 0 ]; then
-            echo "::notice::--list flag not supported, falling back to --help"
-            codebatch --help 2>&1 | tee /tmp/pipelines.log
-          fi
+          codebatch pipelines --json 2>&1 | tee /tmp/pipelines.log
           if [ $? -eq 0 ]; then
             echo "status=pass" >> "$GITHUB_OUTPUT"
           else
