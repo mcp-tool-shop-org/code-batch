@@ -1,6 +1,5 @@
 """Tests for version consistency — single source of truth."""
 
-import pytest
 
 
 class TestVersionConsistency:

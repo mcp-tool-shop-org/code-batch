@@ -4,7 +4,6 @@ Uses synthetic tree-sitter AST structures to test the lint rules
 without requiring tree-sitter to be installed.
 """
 
-import pytest
 
 from codebatch.tasks.lint import (
     lint_js_unused_imports,
@@ -13,7 +12,6 @@ from codebatch.tasks.lint import (
     lint_js_ast,
     _js_collect_import_names,
     _js_collect_used_names,
-    _js_collect_declared_variables,
 )
 
 
