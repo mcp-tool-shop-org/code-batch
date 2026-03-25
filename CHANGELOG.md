@@ -4,6 +4,16 @@ All notable changes to the CodeBatch specification and implementation.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-03-25
+
+### Fixed
+- **`--version` flag** now reads version dynamically from package metadata instead of hardcoded `0.1.0`
+- **CI lint enforcement** — `ruff check` failures now block CI (was silently passing with `|| true`)
+- 5 unused-import lint violations fixed in test files
+
+### Added
+- **`store-stats` command** — shows per-directory disk usage breakdown (objects, snapshots, batches, indexes) with human-readable formatting and `--json` output (9 new tests)
+
 ## [1.0.1] - 2026-03-20
 
 ### Fixed
