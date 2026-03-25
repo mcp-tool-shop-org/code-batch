@@ -10,6 +10,7 @@ from .query import QueryEngine
 from .runner import ShardRunner
 from .snapshot import SnapshotBuilder
 from .store import init_store, ensure_store, StoreExistsError, InvalidStoreError
+from . import __version__
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -135,7 +136,7 @@ def main(argv: list[str] = None) -> int:
         prog="codebatch",
         description="Content-addressed batch execution engine",
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
