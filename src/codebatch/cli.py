@@ -532,6 +532,14 @@ def main(argv: list[str] = None) -> int:
     )
     api_parser.set_defaults(func=cmd_api)
 
+    # store-stats command - show store disk usage breakdown
+    stats_parser = subparsers.add_parser(
+        "store-stats", help="Show store disk usage breakdown"
+    )
+    stats_parser.add_argument("--store", required=True, help="Store root directory")
+    stats_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    stats_parser.set_defaults(func=cmd_store_stats)
+
     # diagnose command - verify store integrity
     diagnose_parser = subparsers.add_parser(
         "diagnose", help="Verify store integrity and compatibility"
@@ -2500,6 +2508,84 @@ def get_diagnose_info(store_root: Path) -> dict:
             "batches": batch_count,
         },
     }
+
+
+def _dir_size(path: Path) -> tuple[int, int]:
+    """Return (total_bytes, file_count) for a directory tree."""
+    total = 0
+    count = 0
+    if path.is_dir():
+        for f in path.rglob("*"):
+            if f.is_file():
+                total += f.stat().st_size
+                count += 1
+    return total, count
+
+
+def _format_size(size_bytes: int) -> str:
+    """Format bytes as human-readable size."""
+    for unit in ("B", "KB", "MB", "GB"):
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}" if unit != "B" else f"{size_bytes} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} TB"
+
+
+def get_store_stats(store_root: Path) -> dict:
+    """Compute disk usage breakdown for a CodeBatch store."""
+    store_root = Path(store_root)
+    ensure_store(store_root)
+
+    subdirs = ["objects", "snapshots", "batches", "indexes"]
+    breakdown = {}
+    total_bytes = 0
+    total_files = 0
+
+    for name in subdirs:
+        d = store_root / name
+        size, count = _dir_size(d)
+        breakdown[name] = {"bytes": size, "files": count}
+        total_bytes += size
+        total_files += count
+
+    # store.json itself
+    store_json = store_root / "store.json"
+    if store_json.exists():
+        sz = store_json.stat().st_size
+        total_bytes += sz
+        total_files += 1
+
+    return {
+        "store": str(store_root),
+        "breakdown": breakdown,
+        "total_bytes": total_bytes,
+        "total_files": total_files,
+    }
+
+
+def cmd_store_stats(args: argparse.Namespace) -> int:
+    """Handle the store-stats command."""
+    store_root = Path(args.store)
+
+    try:
+        stats = get_store_stats(store_root)
+    except InvalidStoreError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(stats, indent=2))
+    else:
+        print(f"Store: {stats['store']}")
+        print()
+        print(f"  {'Directory':<12} {'Size':>10}  {'Files':>6}")
+        print(f"  {'-'*12} {'-'*10}  {'-'*6}")
+        for name, info in stats["breakdown"].items():
+            print(f"  {name:<12} {_format_size(info['bytes']):>10}  {info['files']:>6}")
+        print(f"  {'-'*12} {'-'*10}  {'-'*6}")
+        print(f"  {'TOTAL':<12} {_format_size(stats['total_bytes']):>10}  {stats['total_files']:>6}")
+
+    return 0
 
 
 def cmd_diagnose(args: argparse.Namespace) -> int:
