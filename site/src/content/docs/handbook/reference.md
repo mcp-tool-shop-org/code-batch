@@ -14,6 +14,24 @@ The Code Batch repository is organized as follows:
 ```
 schemas/      JSON Schema definitions for all record types
 src/          Core implementation
+  codebatch/
+    cli.py        CLI entry point and argument parsing
+    batch.py      Batch scaffolding and pipeline definitions
+    cas.py        Content-addressed storage (SHA-256)
+    common.py     Shared constants and utilities
+    errors.py     Structured error codes and envelopes
+    index_build.py  LMDB acceleration cache builder
+    paths.py      Path resolution
+    query.py      Query engine for outputs and diagnostics
+    registry.py   Pipeline registry
+    runner.py     Shard execution runner
+    snapshot.py   Snapshot builder and loader
+    store.py      Store initialization and validation
+    workflow.py   High-level batch orchestration
+    cache.py      Cache layer
+    gates/        Quality enforcement gate system
+    tasks/        Task executors (parse, analyze, symbols, lint)
+    ui/           Output formatting, diff rendering, pager
 tests/        Test suites and fixtures
 docs/         Documentation (including TASKS.md task reference)
 .github/      CI/CD workflows
@@ -21,15 +39,15 @@ docs/         Documentation (including TASKS.md task reference)
 
 ### schemas/
 
-Contains JSON Schema definitions for every record type Code Batch produces — snapshots, batches, shard records, output records, diagnostics, and more. These schemas are the formal contract between Code Batch and any tooling that reads its output.
+Contains JSON Schema definitions for every record type Code Batch produces — snapshots, batches, shard records, output records, diagnostics, gates, and more. These schemas are the formal contract between Code Batch and any tooling that reads its output.
 
 ### src/
 
-The core Python implementation. Includes the CLI entry point, the snapshot engine, the sharding algorithm, task runners, the query engine, and the LMDB indexer.
+The core Python implementation. Key modules include the CLI entry point (`cli.py`), the snapshot engine (`snapshot.py`), the sharding algorithm and content-addressed storage (`cas.py`), task executors (`tasks/`), the query engine (`query.py`), the LMDB indexer (`index_build.py`), the gate enforcement system (`gates/`), and the workflow orchestrator (`workflow.py`).
 
 ### tests/
 
-Test suites covering the snapshot engine, deterministic sharding, task execution, query correctness, and the index builder. Fixtures provide known-good inputs and expected outputs for regression testing.
+Test suites covering the snapshot engine, deterministic sharding, task execution, query correctness, the index builder, and gates. Fixtures provide known-good inputs and expected outputs for regression testing.
 
 ### docs/
 
@@ -52,7 +70,7 @@ store/
         01_parse/
           shards/
             ab/
-              status.json  # Shard execution status
+              state.json   # Shard execution state (status, stats, error)
               outputs/     # Structured JSON output records
             cd/
               ...
@@ -117,6 +135,27 @@ Code Batch processes untrusted source files by reading and hashing their content
 
 The primary risk surface is the filesystem: a malicious store directory could contain symlinks or path traversal attempts. Code Batch follows standard path resolution and does not follow symlinks outside the store boundary.
 
+## Error handling
+
+Code Batch uses structured errors with machine-readable codes. When the `--json` flag is used, errors are returned as JSON envelopes containing:
+
+- **code** — A machine-readable error code (e.g. `STORE_NOT_FOUND`, `BATCH_INVALID`, `PIPELINE_NOT_FOUND`)
+- **message** — Human-readable description
+- **hints** — Actionable suggestions for resolving the error
+- **details** — Context-specific information
+
+In text mode (the default), errors print a concise message to stderr with optional hints.
+
+## Gate system
+
+The gate system provides quality enforcement across execution phases. Each gate is a defined invariant check with a status:
+
+- **ENFORCED** — Must pass. Failure indicates a real problem.
+- **HARNESS** — Tracked and reported but non-blocking.
+- **PLACEHOLDER** — Defined but not yet implemented.
+
+Gates are organized into bundles by phase (phase1, phase2, phase3, release). Use `codebatch gate-bundle release --store ./store` to run all gates for a release check.
+
 ## Additional documentation
 
 - **[SPEC.md](https://github.com/mcp-tool-shop-org/code-batch/blob/main/SPEC.md)** — Full storage and execution specification
@@ -128,6 +167,11 @@ The primary risk surface is the filesystem: a malicious store directory could co
 
 - **Questions and help:** [GitHub Discussions](https://github.com/mcp-tool-shop-org/code-batch/discussions)
 - **Bug reports:** [GitHub Issues](https://github.com/mcp-tool-shop-org/code-batch/issues)
+
+## Next steps
+
+- New to Code Batch? Read the [Beginners guide](/code-batch/handbook/beginners/)
+- Return to the [handbook index](/code-batch/handbook/)
 
 ## License
 

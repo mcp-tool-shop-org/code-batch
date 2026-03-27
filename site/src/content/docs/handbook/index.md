@@ -28,8 +28,9 @@ Code Batch is built for developers who need:
 |------|---------------------|
 | [Getting Started](/code-batch/handbook/getting-started/) | Install Code Batch, create your first store, snapshot a project, and run a batch end-to-end |
 | [Usage](/code-batch/handbook/usage/) | Discover pipelines and tasks, query outputs with aliases, explore and compare batches |
-| [Commands](/code-batch/handbook/commands/) | Full CLI reference for low-level commands, shard execution, and LMDB indexing |
+| [Commands](/code-batch/handbook/commands/) | Full CLI reference for all commands, shard execution, gates, and LMDB indexing |
 | [Reference](/code-batch/handbook/reference/) | Project structure, spec versioning policy, and security and data scope |
+| [Beginners](/code-batch/handbook/beginners/) | New to Code Batch? Start here for a gentle introduction, prerequisites, and first steps |
 
 ## Key concepts
 

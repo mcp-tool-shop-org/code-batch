@@ -9,15 +9,22 @@ This page walks you through installing Code Batch and running a complete batch w
 
 ## Installation
 
-Code Batch is distributed as a Python package:
+Code Batch requires **Python 3.10 or later** and is distributed as a Python package:
 
 ```bash
 pip install codebatch
 ```
 
+For optional tree-sitter-based parsing (JavaScript/TypeScript AST support), install with extras:
+
+```bash
+pip install codebatch[treesitter]
+```
+
 Verify the installation:
 
 ```bash
+codebatch --version
 codebatch --help
 ```
 
@@ -41,7 +48,20 @@ codebatch snapshot ./my-project --store ./store
 
 The command prints the snapshot ID. Save this — you will use it to initialize batches.
 
+You can optionally provide a custom snapshot ID with `--id` or attach JSON metadata with `--metadata`:
+
+```bash
+codebatch snapshot ./my-project --store ./store --id my-release-v2 --metadata '{"branch": "main"}'
+```
+
 Snapshots are **immutable**. Once created, a snapshot never changes. You can safely reference it weeks or months later and know it points to the exact same code.
+
+To list or inspect existing snapshots:
+
+```bash
+codebatch snapshot-list --store ./store
+codebatch snapshot-show <id> --store ./store --files
+```
 
 ## Choose a pipeline
 
@@ -57,7 +77,13 @@ Inspect a specific pipeline to see its tasks:
 codebatch pipeline full
 ```
 
-The `full` pipeline is the default and includes tasks like parsing, analysis, symbol extraction, and linting. Each task runs in order, and each task is sharded across the files in your snapshot.
+Code Batch ships with three built-in pipelines:
+
+- **`parse`** — Parse source files and emit AST and diagnostics
+- **`analyze`** — Parse and analyze source files (parse + analysis)
+- **`full`** — Complete pipeline: parse, analyze, symbols, and lint
+
+Each task runs in order, respecting dependencies, and each task is sharded across the files in your snapshot.
 
 ## Initialize a batch
 
@@ -77,7 +103,13 @@ Execute all tasks and shards:
 codebatch run --batch <id> --store ./store
 ```
 
-This is the Phase 5 high-level command. It iterates through every task in pipeline order, executes each shard, and writes structured output records. You do not need to manage individual shards manually.
+This iterates through every task in pipeline order, executes each shard, and writes structured output records. You do not need to manage individual shards manually.
+
+To run only a specific task within the batch:
+
+```bash
+codebatch run --batch <id> --task 01_parse --store ./store
+```
 
 ## Check progress
 
@@ -149,3 +181,4 @@ codebatch errors --batch batch-001 --store ./store
 - Learn about [discoverability, query aliases, and batch comparison](/code-batch/handbook/usage/)
 - See the full [CLI command reference](/code-batch/handbook/commands/)
 - Understand [project structure and security scope](/code-batch/handbook/reference/)
+- New to batch processing? Read the [Beginners guide](/code-batch/handbook/beginners/)

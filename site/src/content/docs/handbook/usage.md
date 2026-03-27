@@ -19,6 +19,12 @@ See all available pipelines:
 codebatch pipelines
 ```
 
+Code Batch ships with three built-in pipelines:
+
+- **`parse`** — Parse source files and emit AST and diagnostics (single task: `01_parse`)
+- **`analyze`** — Parse and analyze (two tasks: `01_parse`, `02_analyze`)
+- **`full`** — Complete pipeline (four tasks: `01_parse`, `02_analyze`, `03_symbols`, `04_lint`)
+
 ### Inspect a pipeline
 
 View the tasks in a specific pipeline:
@@ -27,7 +33,7 @@ View the tasks in a specific pipeline:
 codebatch pipeline full
 ```
 
-This shows the ordered list of tasks, their descriptions, and configuration.
+This shows the ordered list of tasks, their types, dependencies, and configuration.
 
 ### List tasks in a batch
 
@@ -79,7 +85,12 @@ Get a ranked count of output kinds across all tasks:
 codebatch top --batch <id> --store ./store
 ```
 
-This gives you a quick feel for what a batch produced — how many diagnostics, symbols, errors, etc.
+This gives you a quick feel for what a batch produced — how many diagnostics, symbols, errors, etc. Use `--by` to group by different fields:
+
+```bash
+codebatch top --batch <id> --store ./store --by severity
+codebatch top --batch <id> --store ./store --by code --limit 20
+```
 
 ## Exploration and comparison (Phase 6)
 
@@ -156,5 +167,6 @@ When investigating a specific file, `inspect --explain` gives you the full linea
 
 ## Next steps
 
-- See the full [low-level command reference](/code-batch/handbook/commands/) for fine-grained control
+- See the full [command reference](/code-batch/handbook/commands/) for all available commands
 - Review [project structure and security scope](/code-batch/handbook/reference/)
+- New to Code Batch? Read the [Beginners guide](/code-batch/handbook/beginners/)

@@ -1,15 +1,15 @@
 ---
 title: Commands
-description: Low-level CLI commands for fine-grained control over shards, queries, and indexing.
+description: Complete CLI reference for all Code Batch commands.
 sidebar:
   order: 3
 ---
 
-In addition to the high-level workflow commands covered in [Getting Started](/code-batch/handbook/getting-started/) and [Usage](/code-batch/handbook/usage/), Code Batch exposes low-level primitives for fine-grained control. These are useful for custom scripts, debugging, and advanced workflows.
+This page is the complete CLI reference. For narrative walkthroughs, see [Getting Started](/code-batch/handbook/getting-started/) and [Usage](/code-batch/handbook/usage/).
 
-## High-level commands (Phase 5)
+## Workflow commands
 
-These compose the low-level primitives into human-friendly workflows:
+High-level commands that compose low-level primitives into human-friendly workflows:
 
 | Command | Description |
 |---------|-------------|
@@ -19,16 +19,26 @@ These compose the low-level primitives into human-friendly workflows:
 | `codebatch pipeline <name>` | Show details for a specific pipeline |
 | `codebatch batch init --snapshot <id> --pipeline <name> --store <path>` | Initialize a batch from a snapshot and pipeline |
 | `codebatch run --batch <id> --store <path>` | Run all tasks and shards in a batch |
+| `codebatch run --batch <id> --task <name> --store <path>` | Run only a specific task in a batch |
 | `codebatch resume --batch <id> --store <path>` | Resume an interrupted batch from where it stopped |
 | `codebatch status --batch <id> --store <path>` | Show per-shard progress across all tasks |
 | `codebatch summary --batch <id> --store <path>` | Show a high-level output summary |
+
+## Snapshot and batch management
+
+| Command | Description |
+|---------|-------------|
+| `codebatch snapshot-list --store <path>` | List all snapshots in the store |
+| `codebatch snapshot-show <id> --store <path>` | Show snapshot details (add `--files` to list files) |
+| `codebatch batch-list --store <path>` | List all batches in the store |
+| `codebatch batch-show <id> --store <path>` | Show batch details including task breakdown |
 
 ## Discoverability commands
 
 | Command | Description |
 |---------|-------------|
 | `codebatch tasks --batch <id> --store <path>` | List tasks in a batch |
-| `codebatch shards --batch <id> --task <name> --store <path>` | List shards for a specific task |
+| `codebatch shards --batch <id> --task <name> --store <path>` | List shards for a specific task (filter with `--status`) |
 
 ## Query aliases
 
@@ -36,9 +46,9 @@ These compose the low-level primitives into human-friendly workflows:
 |---------|-------------|
 | `codebatch errors --batch <id> --store <path>` | Show all error-kind outputs |
 | `codebatch files --batch <id> --store <path>` | List files in the batch's snapshot |
-| `codebatch top --batch <id> --store <path>` | Ranked count of output kinds |
+| `codebatch top --batch <id> --store <path>` | Ranked count of output kinds (use `--by kind\|severity\|code`) |
 
-## Exploration and comparison (Phase 6)
+## Exploration and comparison
 
 | Command | Description |
 |---------|-------------|
@@ -47,6 +57,28 @@ These compose the low-level primitives into human-friendly workflows:
 | `codebatch diff <batchA> <batchB> --store <path>` | Compare outputs between two batches |
 | `codebatch regressions <batchA> <batchB> --store <path>` | Show new or worsened diagnostics |
 | `codebatch improvements <batchA> <batchB> --store <path>` | Show fixed or improved diagnostics |
+| `codebatch explain <subcommand>` | Show data sources for a command (e.g. `explain inspect`) |
+
+## Gate commands (quality enforcement)
+
+Gates are invariant checks that validate stores, batches, and outputs. They are organized by phase and can be run individually or as bundles.
+
+| Command | Description |
+|---------|-------------|
+| `codebatch gate-list` | List all gates (filter with `--status` or `--tag`) |
+| `codebatch gate-run <gate-id> --store <path>` | Run a single gate by ID or alias |
+| `codebatch gate-bundle <bundle> --store <path>` | Run a gate bundle (phase1, phase2, phase3, release) |
+| `codebatch gate-explain <gate-id>` | Explain what a gate checks and its enforcement status |
+
+Gate statuses are **ENFORCED** (must pass), **HARNESS** (tracked but non-blocking), or **PLACEHOLDER** (not yet implemented).
+
+## Store operations
+
+| Command | Description |
+|---------|-------------|
+| `codebatch store-stats --store <path>` | Show store disk usage breakdown |
+| `codebatch diagnose --store <path>` | Verify store integrity and compatibility |
+| `codebatch api --json` | Show API capabilities and metadata |
 
 ## Low-level commands
 
@@ -122,9 +154,13 @@ Most commands share these flags:
 | `--store <path>` | Path to the filesystem store (required for most commands) |
 | `--batch <id>` | Batch ID to operate on |
 | `--task <name>` | Task name within a batch (e.g. `01_parse`) |
+| `--json` | Output as JSON for machine-readable integration |
+| `-v`, `--verbose` | Show additional detail in text output |
 | `--explain` | Annotate output with source task, shard, and record path |
+| `--no-color` | Disable colored output (available on inspect, diff, regressions, improvements) |
 
 ## Next steps
 
 - Review [project structure and security scope](/code-batch/handbook/reference/)
+- New to Code Batch? Read the [Beginners guide](/code-batch/handbook/beginners/)
 - Return to the [handbook index](/code-batch/handbook/)

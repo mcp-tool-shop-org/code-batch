@@ -45,7 +45,7 @@ codebatch pipelines
 # Initialize a batch with a pipeline
 codebatch batch init --snapshot <id> --pipeline full --store ./store
 
-# Run all tasks and shards (Phase 5 workflow)
+# Run all tasks and shards
 codebatch run --batch <id> --store ./store
 
 # View progress
@@ -55,13 +55,16 @@ codebatch status --batch <id> --store ./store
 codebatch summary --batch <id> --store ./store
 ```
 
-## Human Workflow (Phase 5)
+## Workflow Commands
 
-Phase 5 adds human-friendly commands that compose existing primitives:
+High-level commands that compose existing primitives:
 
 ```bash
 # Run entire batch (no manual shard iteration needed)
 codebatch run --batch <id> --store ./store
+
+# Run only a specific task within a batch
+codebatch run --batch <id> --task 01_parse --store ./store
 
 # Resume interrupted execution
 codebatch resume --batch <id> --store ./store
@@ -73,10 +76,26 @@ codebatch status --batch <id> --store ./store
 codebatch summary --batch <id> --store ./store
 ```
 
+## Snapshot and Batch Management
+
+```bash
+# List all snapshots
+codebatch snapshot-list --store ./store
+
+# Show snapshot details (with optional file listing)
+codebatch snapshot-show <id> --store ./store --files
+
+# List all batches
+codebatch batch-list --store ./store
+
+# Show batch details
+codebatch batch-show <id> --store ./store
+```
+
 ## Discoverability
 
 ```bash
-# List pipelines
+# List pipelines (parse, analyze, full)
 codebatch pipelines
 
 # Show pipeline details
@@ -102,9 +121,9 @@ codebatch files --batch <id> --store ./store
 codebatch top --batch <id> --store ./store
 ```
 
-## Exploration & Comparison (Phase 6)
+## Exploration and Comparison
 
-Phase 6 adds read-only views for exploring outputs and comparing batches—without modifying the store.
+Read-only views for exploring outputs and comparing batches — without modifying the store.
 
 ```bash
 # Inspect all outputs for a file
@@ -121,6 +140,37 @@ codebatch improvements <batchA> <batchB> --store ./store
 
 # Explain data sources for any command
 codebatch inspect src/main.py --batch <id> --store ./store --explain
+```
+
+## Gates (Quality Enforcement)
+
+Run invariant checks against stores and batches:
+
+```bash
+# List all gates
+codebatch gate-list
+
+# Run a single gate
+codebatch gate-run P1-G1 --store ./store
+
+# Run a gate bundle (phase1, phase2, phase3, release)
+codebatch gate-bundle release --store ./store --batch <id>
+
+# Explain what a gate checks
+codebatch gate-explain P1-G1
+```
+
+## Store Operations
+
+```bash
+# Show store disk usage breakdown
+codebatch store-stats --store ./store
+
+# Verify store integrity and compatibility
+codebatch diagnose --store ./store
+
+# Show API capabilities and metadata
+codebatch api --json
 ```
 
 ## Low-Level Commands
@@ -140,6 +190,10 @@ codebatch query diagnostics --batch <id> --task 01_parse --store ./store
 # Build LMDB acceleration cache
 codebatch index-build --batch <id> --store ./store
 ```
+
+## JSON Output
+
+Most commands accept the `--json` flag for machine-readable output, making CodeBatch easy to integrate into scripts and CI pipelines.
 
 ## Spec Versioning
 
